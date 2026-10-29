@@ -21,7 +21,7 @@ jobs:
         working-directory: web
       - uses: actions/upload-pages-artifact@v3
         with: { path: web/dist }
-      - uses: actions/attest-build-provenance@v2 # signed SLSA provenance for the exact Pages tarball
+      - uses: actions/attest-build-provenance@v4 # signed SLSA provenance for the exact Pages tarball
         with: { subject-path: "${{ runner.temp }}/artifact.tar" }
   deploy:
     needs: build
