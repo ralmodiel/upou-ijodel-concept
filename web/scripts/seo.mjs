@@ -1,13 +1,13 @@
 // Build-time SEO: static read pages, sitemap, robots, 404 (hash routing is invisible to crawlers). SITE_URL env sets absolute URLs.
 import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync } from "fs";
 import { join } from "path";
-export const SITE = (process.env.SITE_URL || "https://example.github.io/ijodel-rag").replace(/\/+$/, ""); // default is a placeholder: set SITE_URL for the real Pages URL
+export const SITE = (process.env.SITE_URL || "https://ralmodiel.github.io/upou-ijodel-concept").replace(/\/+$/, ""); // default is the current POC Pages URL: set SITE_URL for the UPOU deployment
 const NAME = "International Journal on Open and Distance e-Learning";
 const DESC = "IJODeL: open-access scholarly articles on open and distance e-learning. Browse, search and read 116 chapters by issue, topic and author.";
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const clip = (s, n = 155) => { s = String(s || "").replace(/\s+/g, " ").trim(); return s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…"; };
 const m = (k, v, a = "name") => `<meta ${a}="${k}" content="${esc(v)}">`;
-const IMG = () => [m("og:image", SITE + "/img/social.png", "property"), m("og:image:width", "1278", "property"), m("og:image:height", "884", "property"), m("og:image:alt", "Relationship map of IJODeL chapters, topics, authors and issues", "property"), m("twitter:image", SITE + "/img/social.png")].join("\n");
+const IMG = () => [m("og:image", SITE + "/img/social.png", "property"), m("og:image:width", "1200", "property"), m("og:image:height", "630", "property"), m("og:image:alt", "The IJODeL home page: International Journal on Open and Distance e-Learning", "property"), m("twitter:image", SITE + "/img/social.png")].join("\n");
 const head = (title, desc, url) => [`<title>${esc(title)}</title>`, m("description", desc), `<link rel="canonical" href="${url}">`,
   m("og:type", "article", "property"), m("og:site_name", "IJODeL", "property"), m("og:title", title, "property"), m("og:description", desc, "property"), m("og:url", url, "property"),
   m("twitter:card", "summary_large_image"), IMG(), m("twitter:title", title), m("twitter:description", desc)].join("\n");
