@@ -19,7 +19,7 @@ jobs:
         env: { SITE_URL: "${{ vars.SITE_URL }}" } # repo variable, e.g. https://<user>.github.io/<repo>; unset = placeholder URLs in sitemap/canonical
       - run: npm sbom --sbom-format cyclonedx > dist/sbom.cdx.json && node scripts/supply.mjs dist/sbom.cdx.json # CycloneDX SBOM shipped with the site
         working-directory: web
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with: { path: web/dist }
       - uses: actions/attest-build-provenance@v2 # signed SLSA provenance for the exact Pages tarball
         with: { subject-path: "${{ runner.temp }}/artifact.tar" }
