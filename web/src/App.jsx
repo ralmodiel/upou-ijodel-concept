@@ -1,3 +1,4 @@
+import { recommend } from "./recommend.js";
 import { bibtex, citeStyle, styleText, STYLES, ris } from "./cite.js";
 import { About, CookieConsent, Privacy, openCookieSettings } from "./Consent.jsx";
 import { useSeo } from "./useSeo.js";
@@ -7,7 +8,7 @@ import { syncSW, applyUpdate } from "./sw-reg.js";
 const useFaqs = (id) => { const [f, set] = useState({ id, l: [] }); useEffect(() => { let on = true; if (id) faqsFor(id).then((l) => on && set({ id, l })).catch(() => {}); return () => { on = false; }; }, [id]); return f.id === id ? [...f.l] : []; };
 // Semantic-model state for the progress line: {s: off|loading|ready|failed, pct}.
 const useModel = () => { const [, t] = useState(0); useEffect(() => onModel(() => t((n) => n + 1)), []); return modelState(); };
-import { Component, lazy, memo, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Component, lazy, memo, Suspense, useMemo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { load, startModel, modelState, onModel, searchArticles, didYouMean, didYouMeanAsync, warmSearch, faqsFor, pagePassage, FIELD_LABEL } from "./engine.js";
 
@@ -121,6 +122,20 @@ function SharedList({ name, ids }) {
     </section>
   );
 }
+// Most relevant first; the list's items are the seeds, so it updates as items are added or removed.
+function Recommended({ items }) {
+  const recs = useMemo(() => recommend(items, window.__S.articles), [items]);
+  return (
+    <aside aria-labelledby="rec-h" className="lg:sticky lg:top-4 lg:self-start">
+      <h2 id="rec-h" className="font-serif text-2xl">Recommended</h2>
+      <p className="mt-1 text-xs text-ink-3">Chapters, papers and theses like the ones in this list, most relevant first. Worked out in your browser.</p>
+      {recs.length === 0 ? <p className="mt-3 rounded-xl border border-dashed border-line p-4 text-sm text-ink-3">Add items to this list to get recommendations.</p> :
+        <ol className="mt-3 space-y-3">{recs.map(({ a, why, cov, n }) => <li key={a.id} className="rounded-xl border border-line bg-surface p-3"><Link to={"/read/" + a.id} className="font-medium text-link hover:underline">{a.title}</Link>
+          <div className="mt-1 flex items-center gap-2"><div className="min-w-0 flex-1 text-xs text-ink-3">{a.type} · {a.year} · {by(a)}</div><AddBtn id={a.id} label /></div>
+          {n > 0 && <p className="mt-1 text-xs text-ink-2">{n} shared topic{n === 1 ? "" : "s"} with {cov} of {items.length} listed: {why.join(", ")}</p>}</li>)}</ol>}
+    </aside>
+  );
+}
 function MyList({ lid }) {
   const lists = useLists(), cur = lists.find((l) => l.id === lid) || lists[0], items = cur.items.map((i) => window.__S.byId[i]).filter(Boolean);
   const edit = (f) => saveLists(lists.map((l) => l.id === cur.id ? f(l) : l)), [msg, setMsg] = useState("");
@@ -129,11 +144,6 @@ function MyList({ lid }) {
   const file = (cur.name.replace(/[^\w-]+/g, "-").replace(/^-|-$/g, "") || "list").toLowerCase();
   const shareUrl = () => location.href.split("#")[0] + "#/list/share/" + encodeURIComponent(cur.name) + "/" + items.map((a) => a.id).join(",");
   const share = async () => { try { await navigator.clipboard.writeText(shareUrl()); say("Share link copied"); } catch { prompt("Copy this link", shareUrl()); } };
-  const imp = async (e) => {
-    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
-    try { if (f.size > 200000) throw 0; const v = JSON.parse(await f.text()), arr = (Array.isArray(v) ? v : Array.isArray(v?.lists) ? v.lists : [v]).filter((x) => x && typeof x === "object").slice(0, 20).map((x) => cleanList(x.name, x.items)).filter((x) => x.items.length);
-      if (!arr.length) throw 0; location.hash = "/list/" + addLists(arr); say(`Imported ${arr.length} list${arr.length > 1 ? "s" : ""}`); } catch { say("That file is not a view-list export"); }
-  };
   const act = "min-h-10 text-sm text-link hover:underline";
   return (
     <section>
@@ -154,10 +164,13 @@ function MyList({ lid }) {
         <button type="button" disabled={!items.length} className={act + " disabled:opacity-40"} onClick={async () => { try { await navigator.clipboard.writeText(items.map((a) => styleText(a, "apa")).join("\n\n")); say(`${items.length} APA citations copied`); } catch { say("Copy failed: use BibTeX or RIS"); } }}>Copy all citations (APA)</button>
         <button type="button" disabled={!items.length} className={act + " disabled:opacity-40"} onClick={() => download(file + ".bib", bibtex(items), "application/x-bibtex")}>BibTeX</button>
         <button type="button" disabled={!items.length} className={act + " disabled:opacity-40"} onClick={() => download(file + ".ris", ris(items), "application/x-research-info-systems")}>RIS</button>
-        <label className={act + " inline-flex cursor-pointer items-center"}>Import JSON…<input type="file" accept=".json,application/json" onChange={imp} className="sr-only" /></label>
         <span role="status" className="text-xs text-ink-2">{msg}</span></div>
-      {items.length === 0 ? <p className="mt-6 rounded-xl border border-dashed border-line p-8 text-center text-ink-3">This list is empty. Press <b>+</b> on any chapter to add it, then read them one by one.</p> :
-        <ul className="mt-5 space-y-4">{items.map((a, i) => <Card key={a.id} a={a} extra={<div className="mt-2 flex gap-2 text-sm"><button type="button" disabled={!i} onClick={() => move(a.id, -1)} aria-label={`Move up: ${a.title}`} className="min-h-10 rounded-full border border-line px-3 disabled:opacity-40">↑ Up</button><button type="button" disabled={i === items.length - 1} onClick={() => move(a.id, 1)} aria-label={`Move down: ${a.title}`} className="min-h-10 rounded-full border border-line px-3 disabled:opacity-40">↓ Down</button></div>} />)}</ul>}
+      <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div>
+      {items.length === 0 ? <p className="rounded-xl border border-dashed border-line p-8 text-center text-ink-3">This list is empty. Press <b>+</b> on any chapter to add it, then read them one by one.</p> :
+        <ul className="space-y-4">{items.map((a, i) => <Card key={a.id} a={a} extra={<div className="mt-2 flex gap-2 text-sm"><button type="button" disabled={!i} onClick={() => move(a.id, -1)} aria-label={`Move up: ${a.title}`} className="min-h-10 rounded-full border border-line px-3 disabled:opacity-40">↑ Up</button><button type="button" disabled={i === items.length - 1} onClick={() => move(a.id, 1)} aria-label={`Move down: ${a.title}`} className="min-h-10 rounded-full border border-line px-3 disabled:opacity-40">↓ Down</button></div>} />)}</ul>}</div>
+        <Recommended items={items} />
+      </div>
     </section>
   );
 }

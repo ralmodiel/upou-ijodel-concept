@@ -94,7 +94,7 @@ const Graph3D = forwardRef(function Graph3D({ nodes: all, links: allLinks, seed,
   };
   const refresh = () => { const f = fg.current; if (!f) return; f.nodeThreeObject(make); f.linkWidth(width).linkColor(linkCol); if (circ.current) f.linkThreeObject(mkLink); };
   const touch = (l) => { const { focus: f } = st.current; return f && (l.source.id === f || l.target.id === f); };
-  const width = (l) => (touch(l) ? 2.2 : 0.6);
+  const width = (l) => (touch(l) ? 2.2 : l.weak ? 0.25 : 0.6);
   const linkCol = (l) => (touch(l) ? "#50e0f8" : st.current.focus ? "rgba(80,224,248,.12)" : "rgba(80,224,248,.6)");
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { weakDevice } from "./device.js";
-import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from "d3-force";
+import { recommend } from "./recommend.js";
 import { AddBtn, Icon, Link, MapsIntro, clip, issueKey, lazyRetry, slug } from "./App.jsx";
 import { AREAS, addChip, chipCount, setMode as setAdvMode, undo, useAdv } from "./Advanced.jsx";
 
@@ -9,7 +10,21 @@ import { AREAS, addChip, chipCount, setMode as setAdvMode, undo, useAdv } from "
 export const LOGO = { cyan: "#50e0f8", navy: "#283058", pale: "#c8dcdc" };
 const COLOR = { pub: LOGO.cyan, tag: "#2f7d6d", category: "#c9791b", author: "#8e182e", issue: "#6b7fd7" };
 const KIND_LABEL = { pub: "chapter", tag: "topic", category: "category", author: "author", issue: "issue" };
-const OPTS = [["rel", "Related reading", "pub"], ["issue", "Same issue", "issue"], ["tag", "Topics", "tag"], ["category", "Categories", "category"], ["author", "Authors", "author"]];
+// priority of each relation kind: "Levels" follows the ticked options, and choosing a level ticks the first N tiers
+const TIER = { tag: 1, tagrel: 1, rel: 2, rec: 2, category: 3, author: 4, issue: 5 };
+const relKey = (r) => r.replace(/\d+ (items?|chapters?)/g, "# items").replace(/\d+/g, "#");
+// legend swatch: same outline as the node when "Shapes by kind" is on
+const Swatch = ({ k, shapes }) => <svg width="14" height="14" viewBox="-8 -8 16 16" aria-hidden="true" className="shrink-0" fill={COLOR[k]}>{shapes ? shape(k, 5.5) : <circle r="5.5" />}</svg>;
+// one pass over the articles gives every count and tag pair the map needs (instead of a filter per node)
+const idx = () => window.__S.mapIdx ||= (() => {
+  const m = { subjects: new Map(), categories: new Map(), authors: new Map(), issue: new Map(), co: new Map() }, add = (f, k, a) => (m[f].get(k) || m[f].set(k, []).get(k)).push(a);
+  for (const a of window.__S.articles) {
+    a.subjects.forEach((t) => add("subjects", t, a)); a.categories.forEach((c) => add("categories", c, a)); a.authors.forEach((x) => add("authors", x, a)); add("issue", issueKey(a), a);
+    const ts = [...new Set(a.subjects)].sort(); for (let i = 0; i < ts.length; i++) for (let j = i + 1; j < ts.length; j++) { const k = ts[i] + "\u0001" + ts[j]; m.co.set(k, (m.co.get(k) || 0) + 1); }
+  }
+  return m;
+})();
+const OPTS = [["rel", "Related reading", "pub"], ["rec", "Recommended", "pub"], ["tag", "Tags", "tag"], ["tagrel", "Tag relations", "tag"], ["issue", "Same issue", "issue"], ["category", "Categories", "category"], ["author", "Authors", "author"]];
 const load3D = () => import("./Graph3D.jsx");
 const Graph3D = lazyRetry(load3D, (m) => m.default);
 const W = 900, H = 600;
@@ -18,12 +33,12 @@ function build(kind, id, on) {
   const S = window.__S, nodes = new Map(), links = [];
   const node = (nid, k, label, n = 1, ref) => { if (!nodes.has(nid)) nodes.set(nid, { id: nid, kind: k, label, n, ref }); return nodes.get(nid); };
   const link = (s, t, rel) => { if (s !== t && !links.some((l) => (l.s === s && l.t === t) || (l.s === t && l.t === s))) links.push({ s, t, rel }); };
-  const cnt = (get, v) => S.articles.filter((a) => get(a).includes(v)).length;
+  const X = idx(), cnt = (f, v) => X[f].get(v)?.length || 0;
   const pub = (a) => node("p:" + a.id, "pub", a.title, 1, a.id);
-  const tag = (t) => node("t:" + t, "tag", t, cnt((a) => a.subjects, t), t);
-  const cat = (c) => node("c:" + c, "category", c, cnt((a) => a.categories, c), c);
-  const auth = (x) => node("a:" + x, "author", x, cnt((a) => a.authors, x), x);
-  const iss = (a) => node("i:" + issueKey(a), "issue", S.issues[issueKey(a)]?.theme || a.issue.label, S.articles.filter((b) => issueKey(b) === issueKey(a)).length, issueKey(a));
+  const tag = (t) => node("t:" + t, "tag", t, cnt("subjects", t), t);
+  const cat = (c) => node("c:" + c, "category", c, cnt("categories", c), c);
+  const auth = (x) => node("a:" + x, "author", x, cnt("authors", x), x);
+  const iss = (a) => node("i:" + issueKey(a), "issue", S.issues[issueKey(a)]?.theme || a.issue.label, cnt("issue", issueKey(a)), issueKey(a));
   let seed;
   if (kind === "pub") {
     const a = S.byId[id]; if (!a) return null;
@@ -38,7 +53,7 @@ function build(kind, id, on) {
     seed = tag(id).id;
     const arts = S.articles.filter((a) => a.subjects.includes(id)).sort((x, y) => y.year - x.year).slice(0, 14), co = new Map(), cc = new Map();
     arts.forEach((a) => { link(seed, pub(a).id, "topic"); a.subjects.forEach((t) => t !== id && co.set(t, (co.get(t) || 0) + 1)); a.categories.forEach((c) => cc.set(c, (cc.get(c) || 0) + 1)); if (on.author) link(pub(a).id, auth(a.authors[0]).id, "by"); });
-    if (on.tag) [...co].sort((x, y) => y[1] - x[1]).slice(0, 8).forEach(([t, n]) => { link(seed, tag(t).id, `together in ${n}`); arts.filter((a) => a.subjects.includes(t)).forEach((a) => link(pub(a).id, tag(t).id, "topic")); });
+    if (on.tag) [...co].sort((x, y) => y[1] - x[1]).slice(0, 8).forEach(([t, n]) => { link(seed, tag(t).id, `together in ${n} item${n > 1 ? "s" : ""}`); arts.filter((a) => a.subjects.includes(t)).forEach((a) => link(pub(a).id, tag(t).id, "topic")); });
     if (on.category) [...cc].forEach(([c, n]) => link(seed, cat(c).id, `${n} chapter${n > 1 ? "s" : ""}`));
     if (on.issue) arts.forEach((a) => link(pub(a).id, iss(a).id, "issue"));
   } else {
@@ -47,6 +62,15 @@ function build(kind, id, on) {
     const arts = S.articles.filter((a) => a.authors.includes(id)).slice(0, 14), tg = new Map();
     arts.forEach((a) => { link(seed, pub(a).id, "wrote"); a.subjects.forEach((t) => tg.set(t, (tg.get(t) || 0) + 1)); if (on.author) a.authors.filter((x) => x !== id).forEach((x) => link(seed, auth(x).id, "co-author")); if (on.category) a.categories.forEach((c) => link(pub(a).id, cat(c).id, "category")); if (on.issue) link(pub(a).id, iss(a).id, "issue"); });
     if (on.tag) [...tg].sort((x, y) => y[1] - x[1]).slice(0, 8).forEach(([t, n]) => { link(seed, tag(t).id, `${n} chapter${n > 1 ? "s" : ""}`); arts.filter((a) => a.subjects.includes(t)).forEach((a) => link(pub(a).id, tag(t).id, "topic")); });
+  }
+  if (on.tagrel && on.tag) { // tags drawn on the map that also occur together in the journal: strongest pairs only
+    const ts = [...nodes.values()].filter((n) => n.kind === "tag"), pairs = [];
+    for (let i = 0; i < ts.length; i++) for (let j = i + 1; j < ts.length; j++) { const [x, y] = [ts[i].label, ts[j].label].sort(), n = X.co.get(x + "\u0001" + y); if (n) pairs.push([ts[i].id, ts[j].id, n]); }
+    pairs.sort((p, q) => q[2] - p[2]).slice(0, 14).forEach(([x, y, n]) => link(x, y, `together in ${n} item${n > 1 ? "s" : ""}`));
+  }
+  if (on.rec) { // items the recommender picks from the items on the map (same scoring as the View List page)
+    const seeds = [...nodes.values()].filter((n) => n.kind === "pub").slice(0, 14).map((n) => S.byId[n.ref]).filter(Boolean);
+    recommend(seeds, S.articles, 5).forEach(({ a, why }) => link(seed, pub(a).id, "recommended: " + (why[0] || "similar")));
   }
   return { seed, nodes: [...nodes.values()], links };
 }
@@ -62,7 +86,11 @@ class Guard extends Component {
 }
 function layout(g, mode) {
   const ns = g.nodes.map((n) => ({ ...n, r: n.kind === "pub" ? 9 : 8 + Math.min(14, Math.sqrt(n.n) * 3), x: 0, y: 0 })), by = new Map(ns.map((n) => [n.id, n]));
-  const ls = g.links.map((l) => ({ source: l.s, target: l.t, rel: l.rel }));
+  const ls = g.links.map((l) => ({ source: l.s, target: l.t, rel: l.rel })), relN = new Map(); // count of lines per relation kind, shown as rel(n) on the line
+  for (const l of ls) if (l.rel) { const k = relKey(l.rel); relN.set(k, (relN.get(k) || 0) + 1); }
+  for (const l of ls) if (l.rel) { const c = relN.get(relKey(l.rel)); l.tag = `${l.rel}(${c})`; l.w = 1 + Math.min(2.2, Math.log2(Math.max(+l.rel.match(/\d+/)?.[0] || 1, c)) * 0.55); if (/^same (collection|issue)/.test(l.rel)) { l.weak = true; l.w = 0.6; } } // line weight grows with the count, capped
+  const deg = new Map(); for (const l of ls) for (const e of [l.source, l.target]) deg.set(e, (deg.get(e) || 0) + 1);
+  ns.forEach((n) => { n.r += Math.min(6, Math.sqrt(deg.get(n.id) || 0) * 1.2); }); // busier nodes are bigger
   if (mode === "rings" || mode === "circuit") {
     const depth = new Map([[g.seed, 0]]), q = [g.seed];
     while (q.length) { const c = q.shift(); ls.forEach((l) => { const [x, y] = [l.source, l.target]; for (const [p, o] of [[x, y], [y, x]]) if (p === c && !depth.has(o)) { depth.set(o, depth.get(c) + 1); q.push(o); } }); }
@@ -101,9 +129,13 @@ export function Maps({ kind = "pub", id }) {
   const S = window.__S, { areas, past, mode: advMode } = useAdv(), svg = useRef(null);
   if (!["pub", "tag", "author"].includes(kind)) kind = "pub";
   const seedId = id || S.articles[0].id;
-  const [on, setOn] = useState({ rel: true, issue: true, tag: true, category: true, author: true }), [shapes, setShapes] = useState(true), [choice, setMode] = useState(null), [dim, setDim] = useState("2d"), g3 = useRef(null), [fail, setFail] = useState("");
-  const panel = useRef(null), [fs, setFs] = useState(false), [winH, setWinH] = useState(innerHeight);
-  useEffect(() => { const f = () => { setFs(document.fullscreenElement === panel.current); setWinH(innerHeight); }; document.addEventListener("fullscreenchange", f); addEventListener("resize", f); return () => { document.removeEventListener("fullscreenchange", f); removeEventListener("resize", f); }; }, []);
+  const [on, setOn] = useState({ rel: true, rec: true, tag: true, tagrel: false, issue: false, category: true, author: true }), [shapes, setShapes] = useState(true), [choice, setMode] = useState(null), [dim, setDim] = useState("2d"), g3 = useRef(null), [fail, setFail] = useState("");
+  const lv = Math.max(1, ...OPTS.filter(([o]) => on[o]).map(([o]) => TIER[o])); // Levels follows the ticked options (and ticks follow it when chosen)
+  const panel = useRef(null), [fs, setFs] = useState(false), [th, setTh] = useState(false), [thX, setThX] = useState(0), [winH, setWinH] = useState(innerHeight), [winW, setWinW] = useState(document.documentElement.clientWidth), [pw, setPw] = useState(0);
+  const nh = Math.max(520, Math.round(pw * H / W)); // 2D and 3D share the taller of the two heights
+  useEffect(() => { const f = () => { setFs(document.fullscreenElement === panel.current); setWinH(innerHeight); setWinW(document.documentElement.clientWidth); }; document.addEventListener("fullscreenchange", f); addEventListener("resize", f); return () => { document.removeEventListener("fullscreenchange", f); removeEventListener("resize", f); }; }, []);
+  useLayoutEffect(() => { setPw(panel.current?.clientWidth || 0); if (th) setThX(-panel.current.parentElement.getBoundingClientRect().left); }, [th, winW, fs]); // breakout offset: the panel sits in a column, theater spans the viewport
+  useEffect(() => { if (!th) return; const k = (e) => { if (e.key === "Escape" && !document.fullscreenElement) setTh(false); }; addEventListener("keydown", k); return () => removeEventListener("keydown", k); }, [th]); // theater mode: Esc leaves it
   const toggleFs = () => { if (document.fullscreenElement) document.exitFullscreen(); else panel.current?.requestFullscreen?.(); };
   const [find, setFind] = useState(""), [found, setFound] = useState(""), [low, setLow] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches || (navigator.hardwareConcurrency || 8) <= 4 || weakDevice());
   const [sel, setSel] = useState(null), [hov, setHov] = useState(null), [view, setView] = useState({ x: 0, y: 0, k: 1 }), [text, setText] = useState("");
@@ -169,8 +201,8 @@ export function Maps({ kind = "pub", id }) {
           <input list="seeds" value={text} onChange={(e) => pick(e.target.value)} onFocus={(e) => e.target.select()} className="mt-1 block w-full rounded-md border border-line bg-surface px-3 py-2 text-base text-ink" />
           <datalist id="seeds">{options.slice(0, 400).map(([l]) => <option key={l} value={l} />)}</datalist></label>
       </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_20rem]">
-        <div ref={panel} className={`overflow-hidden rounded-xl border border-line bg-surface ${fs ? "flex h-screen flex-col !rounded-none" : ""}`}>
+      <div className={`mt-4 grid gap-4 grid-cols-[minmax(0,1fr)] ${th && !fs ? "" : "lg:grid-cols-[minmax(0,1fr)_20rem]"}`}>
+        <div ref={panel} className={`overflow-hidden rounded-xl border border-line bg-surface ${fs ? "flex h-screen flex-col !rounded-none" : ""} ${th && !fs ? "relative !rounded-none" : ""}`} style={th && !fs ? { width: winW, marginLeft: thX } : undefined}>
           <div className="flex flex-wrap items-center gap-3 border-b border-line px-3 py-2 text-sm"><span className="text-ink-3">Layout</span>
             <div className="flex overflow-hidden rounded-md border border-line">{[["circuit", "Circuit"], ...(dim === "3d" ? [["force", "Force"]] : []), ["rings", "Rings"]].map(([k, l]) => <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)} className={`min-h-9 px-3 ${mode === k ? "bg-action-fill text-white" : "text-ink-2"}`}>{l}</button>)}</div>
             <span className="text-ink-3">View</span>
@@ -182,16 +214,17 @@ export function Maps({ kind = "pub", id }) {
             <button type="button" onClick={save} className="min-h-9 rounded-md border border-line px-3">Save image</button></div>
           <div className={`relative ${fs ? "min-h-0 flex-1" : ""}`}>
         <fieldset className="z-10 flex flex-wrap gap-x-3 gap-y-0.5 border-b border-line bg-surface/95 px-3 py-1.5 text-xs sm:absolute sm:left-2 sm:top-2 sm:max-w-[15rem] sm:flex-col sm:rounded-lg sm:border sm:shadow"><legend className="sr-only">Show on the map</legend>
-          {OPTS.map(([k, l, c]) => <label key={k} className="flex min-h-7 items-center gap-1.5"><input type="checkbox" checked={on[k]} onChange={() => setOn({ ...on, [k]: !on[k] })} /><span className="h-2.5 w-2.5 rounded-full" style={{ background: COLOR[c] }} />{l}</label>)}
+          <label className="mb-1 flex text-sm"><select aria-label="Levels" title="How many priority levels of relationships are drawn: 1 Tags, 2 + Related and Recommended, 3 + Categories, 4 + Authors, 5 + Same issue" value={lv} onChange={(e) => setOn(Object.fromEntries(OPTS.map(([k]) => [k, k !== "tagrel" && TIER[k] <= +e.target.value])))} className="min-h-9 w-full rounded-md border border-line bg-white px-2">{[[1, "1 · Tags"], [2, "2 · + Related"], [3, "3 · + Categories"], [4, "4 · + Authors"], [5, "5 · + Same issue"]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+          {OPTS.map(([k, l, c]) => <label key={k} title={k === "tagrel" && !on.tag ? "Needs Tags" : undefined} className={`flex min-h-7 items-center gap-1.5 ${k === "tagrel" && !on.tag ? "opacity-50" : ""}`}><input type="checkbox" disabled={k === "tagrel" && !on.tag} checked={on[k] && !(k === "tagrel" && !on.tag)} onChange={() => setOn({ ...on, [k]: !on[k] })} /><Swatch k={c} shapes={shapes} />{l}</label>)}
           <label className="flex min-h-7 items-center gap-1.5"><input type="checkbox" checked={shapes} onChange={() => setShapes(!shapes)} />Shapes by kind</label></fieldset>
           {!lay ? <p className="p-10 text-center text-ink-3">Nothing to map for that seed. Pick another.</p> : dim === "3d" ?
-            <Guard onFail={(why) => { setFail(why); setDim("2d"); }}><Suspense fallback={<p className="p-10 text-center text-ink-3">Loading 3D map…</p>}><Graph3D ref={g3} nodes={lay.nodes} links={lay.links} seed={g.seed} colors={COLOR} mode={mode} shapes={shapes} focus={focus} sel={sel} marked={inSearch} low={low} height={fs ? Math.max(360, winH - 140) : 520} onSelect={(id) => { const n = id && lay.nodes.find((x) => x.id === id); if (!(n && solo(n))) setSel(id); }} onHover={setHov} /></Suspense></Guard> :
-            <svg ref={svg} xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Relationship map" className={`block w-full touch-none select-none ${fs ? "h-full" : "h-auto"}`} style={{ cursor: drag.current ? "grabbing" : "grab", background: "radial-gradient(circle, #eef1f7 1px, transparent 1px) 0 0/22px 22px" }}
+            <Guard onFail={(why) => { setFail(why); setDim("2d"); }}><Suspense fallback={<p className="p-10 text-center text-ink-3">Loading 3D map…</p>}><Graph3D ref={g3} nodes={lay.nodes} links={lay.links} seed={g.seed} colors={COLOR} mode={mode} shapes={shapes} focus={focus} sel={sel} marked={inSearch} low={low} height={fs ? Math.max(360, winH - 140) : th ? Math.max(360, winH - 150) : nh} onSelect={(id) => { const n = id && lay.nodes.find((x) => x.id === id); if (!(n && solo(n))) setSel(id); }} onHover={setHov} /></Suspense></Guard> :
+            <svg ref={svg} xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Relationship map" className={`block w-full touch-none select-none ${fs ? "h-full" : th ? "" : "h-auto"}`} style={{ ...(!fs ? { height: th ? Math.max(360, winH - 150) : nh } : {}), cursor: drag.current ? "grabbing" : "grab", background: "radial-gradient(circle, #eef1f7 1px, transparent 1px) 0 0/22px 22px" }}
               onPointerDown={down} onPointerMove={move} onPointerUp={() => { const m = drag.current?.moved; drag.current = null; if (!m) setSel(null); }} onWheel={wheel}>
               <g transform={`translate(${W / 2 + (fit.ox || 0) + view.x} ${H / 2 + view.y}) scale(${view.k * fit.k}) translate(${-fit.cx} ${-fit.cy})`}>
                 {lay.links.map((l, i) => { const f = (focus && (l.source.id === focus || l.target.id === focus)) || onPath.has(l); return <g key={i} data-path={onPath.has(l) || undefined} opacity={focus && !f ? 0.12 : 1}><title>{`${l.source.label} → ${l.rel || "linked"} → ${l.target.label}`}</title>
-                  {mode === "circuit" ? <><path d={trace(l.source, l.target)} fill="none" strokeLinejoin="round" stroke={onPath.has(l) ? LOGO.navy : LOGO.cyan} strokeOpacity={f ? 1 : 0.75} strokeWidth={f ? 2.8 : 1.6} />{bends(l.source, l.target).map(([x, y], j) => <circle key={j} cx={x} cy={y} r={2.6} fill={LOGO.navy} aria-hidden="true" />)}</> : <line x1={l.source.x} y1={l.source.y} x2={l.target.x} y2={l.target.y} stroke={onPath.has(l) ? LOGO.navy : LOGO.cyan} strokeOpacity={f ? 1 : 0.65} strokeWidth={f ? 2.8 : 1.4} />}
-                  {l.rel && <text x={(l.source.x + l.target.x) / 2} y={(l.source.y + l.target.y) / 2} textAnchor="middle" dominantBaseline="middle" fontSize={(f ? 10 : 8) / sc} fontStyle="italic" fill={f ? "#28345a" : "#5b6480"} stroke="#fff" strokeWidth={3 / sc} paintOrder="stroke">{trunc(l.rel, f ? 40 : 24)}</text>}</g>; })}
+                  {mode === "circuit" ? <><path d={trace(l.source, l.target)} fill="none" strokeLinejoin="round" stroke={onPath.has(l) ? LOGO.navy : LOGO.cyan} strokeDasharray={l.weak ? "3 4" : undefined} strokeOpacity={f ? 1 : l.weak ? 0.4 : 0.75} strokeWidth={(l.w || 1) * (f ? 1.7 : 1.1)} />{bends(l.source, l.target).map(([x, y], j) => <circle key={j} cx={x} cy={y} r={2.6} fill={LOGO.navy} aria-hidden="true" />)}</> : <line x1={l.source.x} y1={l.source.y} x2={l.target.x} y2={l.target.y} stroke={onPath.has(l) ? LOGO.navy : LOGO.cyan} strokeDasharray={l.weak ? "3 4" : undefined} strokeOpacity={f ? 1 : l.weak ? 0.4 : 0.65} strokeWidth={(l.w || 1) * (f ? 1.8 : 1)} />}
+                  {l.rel && <text x={(l.source.x + l.target.x) / 2} y={(l.source.y + l.target.y) / 2} textAnchor="middle" dominantBaseline="middle" fontSize={(f ? 10 : 8) / sc} fontStyle="italic" fill={f ? "#28345a" : "#5b6480"} stroke="#fff" strokeWidth={3 / sc} paintOrder="stroke">{trunc(l.tag || l.rel, f ? 44 : 28)}</text>}</g>; })}
                 {lay.nodes.map((n) => { const dim = lit && !lit.has(n.id) && n.id !== focus, isSeed = n.id === g.seed, label = true; return (
                   <g key={n.id} data-node={n.id} {...(solo(n) ? {} : { tabIndex: 0, role: "button", "aria-pressed": n.id === sel })} aria-label={`${KIND_LABEL[n.kind]}: ${n.label}`} transform={`translate(${n.x} ${n.y})`} opacity={dim ? 0.4 : 1} style={{ cursor: solo(n) ? "default" : "pointer", transition: "opacity .2s" }}
                     onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); if (!solo(n)) setSel(n.id); }} onKeyDown={(e) => { if (solo(n)) return; if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSel(n.id); } else if (e.key === "Escape") setSel(null); else if (/^Arrow/.test(e.key)) { e.preventDefault(); const all = [...svg.current.querySelectorAll("g[data-node]")], i = all.indexOf(e.currentTarget); all[(i + (/Right|Down/.test(e.key) ? 1 : -1) + all.length) % all.length]?.focus(); } }} onMouseEnter={() => setHov(n.id)} onMouseLeave={() => setHov(null)} onFocus={() => setHov(n.id)} onBlur={() => setHov(null)}>
@@ -200,10 +233,11 @@ export function Maps({ kind = "pub", id }) {
                     {label && <text {...(isSeed ? { y: n.r * 3.1 * seedK + 14 / sc, textAnchor: "middle" } : mode === "circuit" && n.x && !outward.has(n.id) ? { x: Math.sign(n.x) * (n.r + 6), y: 4 / sc, textAnchor: n.x < 0 ? "end" : "start" } : { y: n.r + 14 / sc, textAnchor: "middle" })} fontSize={(isSeed ? 13 : 11) / sc} fontWeight={isSeed ? 700 : 400} fill="#28345a" stroke="#fff" strokeWidth={3.5 / sc} paintOrder="stroke">{trunc(n.label, isSeed ? 44 : 26)}</text>}</g>); })}
               </g>
             </svg>}
+          {!fs && <button type="button" onClick={() => setTh(!th)} aria-pressed={th} aria-label="Theater mode" title={th ? "Exit theater mode (Esc)" : "Theater mode: wide and tall, page stays visible"} className={`absolute bottom-2 right-14 z-10 grid h-10 w-10 place-items-center rounded-md border border-line bg-surface/95 shadow hover:text-action ${th ? "text-action" : "text-ink-2"}`}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="1.5" /></svg></button>}
           <button type="button" onClick={toggleFs} aria-label={fs ? "Exit full screen" : "Full screen map"} title={fs ? "Exit full screen" : "Full screen"} className="absolute bottom-2 right-2 z-10 grid h-10 w-10 place-items-center rounded-md border border-line bg-surface/95 text-ink-2 shadow hover:text-action"><Icon m={fs ? "shrink" : "expand"} w={2} className="h-5 w-5" /></button>
           {fs && cur && <div className="absolute bottom-2 left-2 z-10 max-w-[min(26rem,60%)] rounded-lg border border-line bg-surface/95 p-2 text-sm shadow"><span className="text-xs uppercase text-ink-3">{KIND_LABEL[cur.kind]}</span> <b>{trunc(cur.label, 70)}</b>{cur.kind === "pub" && <> · <Link to={"/read/" + cur.ref} className="text-link underline">Read</Link></>}{["pub", "tag", "author"].includes(cur.kind) && cur.id !== g.seed && <> · <button type="button" className="text-link underline" onClick={() => go(cur.kind, cur.ref)}>Explore from here</button></>}</div>}
           </div>
-          <div className="flex flex-wrap gap-2 border-t border-line px-3 py-2 text-xs">{Object.entries(KIND_LABEL).map(([k, l]) => <span key={k} className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: COLOR[k] }} />{l}</span>)}<span className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1"><span className="h-0.5 w-5" style={{ background: LOGO.cyan }} />line = how two nodes relate (named on the line)</span><span className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1"><span className="h-2.5 w-2.5 rounded-full border-2 border-[#f2b705]" />in your advanced search</span></div>
+          <div className="flex flex-wrap gap-2 border-t border-line px-3 py-2 text-xs">{Object.entries(KIND_LABEL).map(([k, l]) => <span key={k} className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1"><Swatch k={k} shapes={shapes} />{l}</span>)}<span className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1"><span className="h-0.5 w-5" style={{ background: LOGO.cyan }} />line = how two nodes relate (named on the line)</span><span className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1"><span className="h-2.5 w-2.5 rounded-full border-2 border-[#f2b705]" />in your advanced search</span></div>
         </div>
         <aside className="space-y-4">
           <form role="search" onSubmit={(e) => { e.preventDefault(); const t = find.trim().toLowerCase(), m = t && lay?.nodes.find((n) => n.label.toLowerCase().includes(t)); setFound(m ? "" : "No node matches"); if (m) { setSel(m.id); svg.current?.querySelector(`g[data-node="${CSS.escape(m.id)}"]`)?.focus(); } }} className="flex gap-2">
