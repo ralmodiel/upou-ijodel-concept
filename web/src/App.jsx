@@ -38,6 +38,8 @@ const asset = (p) => import.meta.env.BASE_URL + p;
 export const slug = (c) => c.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "");
 export const issueKey = (a) => a.issue.vol + "." + a.issue.no.replace("&", "-");
 const tagTo = (t) => "/tag/" + encodeURIComponent(t);
+// a tag held by one chapter only has nothing to browse, so it is shown as plain text, not a link
+const tagN = (t) => { const S = window.__S; S.tagN ||= S.articles.reduce((m, x) => { x.subjects.forEach((s) => { m[s] = (m[s] || 0) + 1; }); return m; }, {}); return S.tagN[t] || 0; };
 // Cards can be dragged into the Advanced Search areas as a chapter filter.
 const dragChip = (a) => (e) => { e.dataTransfer.setData("text/chip", JSON.stringify({ k: "pub", v: a.id, l: a.title })); e.dataTransfer.effectAllowed = "copyMove"; };
 const store = (k, v) => { try { if (v === undefined) { const a = JSON.parse(pref.get(k) || "[]"); return Array.isArray(a) ? a.slice(0, 200) : []; } pref.set(k, JSON.stringify(v)); } catch { return []; } };
@@ -165,8 +167,9 @@ function Header({ route }) {
   return (
     <header className="text-white print:hidden">
       <div className="bg-surface"><div className="mx-auto max-w-6xl min-[1536px]:max-w-[88rem] px-4 sm:px-8">
-        <div className="relative">
-          <Link to="/" aria-label="IJODeL, International Journal on Open and Distance e-Learning: home" className="block"><img src={asset("img/logo.webp")} width="1200" height="300" alt="" fetchpriority="high" className="h-auto w-full" /></Link>
+        <div className="group relative">
+          <Link to="/" aria-label="IJODeL, International Journal on Open and Distance e-Learning: home" aria-describedby="logo-note" className="block"><img src={asset("img/logo.webp")} width="1200" height="300" alt="" fetchpriority="high" className="h-auto w-full" /></Link>
+          <span id="logo-note" role="tooltip" className="pointer-events-none absolute left-0 top-full z-50 mt-1 hidden w-72 rounded-md bg-ink-fill p-3 text-xs font-normal leading-snug text-white shadow-lg group-hover:block group-focus-within:block">Disclaimer: this is a proof of concept, not the official IJODeL site. The IJODeL name and logo belong to the journal and UP Open University and are shown only to identify the source of the content.</span>
           {/* the logo's centre emblem: a relationship map seeded with a random chapter of the latest issue */}
           <a href="#/maps/pub" aria-label="Explore the relationship map from a random chapter of the latest issue" title="Explore the map from the top search result, or a random chapter of the latest issue" className="absolute left-[44.5%] top-[64%] block h-[36%] w-[11%] rounded-full outline-offset-2 hover:bg-sky/20"
             onClick={(e) => { e.preventDefault(); keep = true; const top = window.__top, it = issueList()[0]?.items; if (top != null) location.hash = "/maps/pub/" + encodeURIComponent(top); else if (it?.length) location.hash = "/maps/pub/" + encodeURIComponent(it[Math.floor(Math.random() * it.length)].id); else location.hash = "/maps/pub"; }} />
@@ -503,7 +506,7 @@ export const Card = memo(function Card({ a, q, qa, terms, extra }) {
       <p className="mt-3 text-[15px] leading-relaxed text-ink-2">{hl(clip(a.abstract || a.half || "", 380), q)}</p>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
         {a.matched?.length > 0 && <span className="rounded-full bg-crimson-soft px-2.5 py-0.5 text-link">best match: {FIELD_LABEL[a.matched[0]]}{a.matched.length > 1 ? ` +${a.matched.length - 1} more` : ""}</span>}
-        <AddBtn id={a.id} className="ml-auto !bg-navy-soft" label /><Link to={"/maps/pub/" + a.id} className="font-medium text-link hover:underline">Map</Link>{a.subjects[0] && <Link to={"/maps/tag/" + encodeURIComponent(a.subjects[0])} title={`Map of topic: ${a.subjects[0]}`} className="line-clamp-1 max-w-[10rem] text-link hover:underline">Topic map</Link>}{a.authors[0] && <Link to={"/maps/author/" + encodeURIComponent(a.authors[0])} title={`Map of author: ${a.authors[0]}`} className="text-link hover:underline">Author map</Link>}<Link to={"/read/" + a.id} className="font-medium text-link hover:underline">Read →</Link>
+        <AddBtn id={a.id} className="ml-auto !bg-navy-soft" label /><Link to={"/maps/pub/" + a.id} className="font-medium text-link hover:underline">Map</Link>{a.subjects.find((t) => tagN(t) > 1) && <Link to={"/maps/tag/" + encodeURIComponent(a.subjects.find((t) => tagN(t) > 1))} title={`Map of topic: ${a.subjects.find((t) => tagN(t) > 1)}`} className="line-clamp-1 max-w-[10rem] text-link hover:underline">Topic map</Link>}{a.authors[0] && <Link to={"/maps/author/" + encodeURIComponent(a.authors[0])} title={`Map of author: ${a.authors[0]}`} className="text-link hover:underline">Author map</Link>}<Link to={"/read/" + a.id} className="font-medium text-link hover:underline">Read →</Link>
       </div>
       <Passage p={a.passage} id={a.id} />
       {extra}
@@ -673,6 +676,7 @@ function Overview({ a, mode, setMode }) {
   const seg = (on) => `min-h-10 px-3 ${on ? "bg-action-fill text-white" : "bg-surface text-ink-2"}`;
   const text = mode === "abstract" ? a.abstract || "No abstract available. Open the original article." : a[k] || "";
   return (
+    <>
     <section className="mt-6">
       <Cite a={a} />
       <div className="flex flex-wrap items-center gap-3 border-b border-line pb-2"><h2 className="mr-auto font-serif text-2xl">{mode === "abstract" ? "Abstract" : "Summary"}</h2>
@@ -681,10 +685,11 @@ function Overview({ a, mode, setMode }) {
       {mode === "summary" && <p role="note" className="mt-3 rounded-md bg-crimson-soft px-3 py-2 text-sm text-ink-2"><b>AI-generated.</b> These summaries were written by a language model from the full text and may contain errors; check the original article.</p>}
       {mode === "summary" && <NoCite className="mt-2" />}
       <div className="mt-4 space-y-4 text-[17px] leading-8 text-ink">{text.split(/\n+/).map((p, i) => <p key={i}>{p}</p>)}</div>
-      {a.diff && <div className="mt-8"><h2 className="border-b border-line pb-2 font-serif text-2xl">What sets this chapter apart<AiLabel /></h2>
-        <NoCite what="AI comparison" className="mt-3" />
-        <div className="mt-4 space-y-4 text-[17px] leading-8 text-ink">{a.diff.map((p, i) => <p key={i}>{p}</p>)}</div></div>}
     </section>
+    {a.diff && <section aria-label="What sets this chapter apart" className="mt-8"><h2 className="border-b border-line pb-2 font-serif text-2xl">What sets this chapter apart<AiLabel /></h2>
+        <NoCite what="AI comparison" className="mt-3" />
+        <div className="mt-4 space-y-4 text-[17px] leading-8 text-ink">{a.diff.map((p, i) => <p key={i}>{p}</p>)}</div></section>}
+    </>
   );
 }
 // Reader toolbar: sticky jump links to the page's sections, reading progress, previous/next in the issue, share.
@@ -743,7 +748,7 @@ function Reader({ id, at, sec }) {
         {a.categories?.map((c) => <Link key={c} to={"/cat/" + slug(c)} className="mr-2 inline-block rounded-full bg-crimson-soft px-3 py-0.5 text-xs font-medium text-link hover:underline">{c}</Link>)}
         <h1 className="mt-2 font-serif text-3xl leading-tight">{a.title}</h1>
         <div className="mt-2 text-ink-3">{by(a)} · <Link to={"/issue/" + issueKey(a)} className="text-link underline">{a.issue.label}</Link></div>
-        <div className="mt-3 flex flex-wrap gap-1.5">{a.subjects.map((s) => <Link key={s} to={tagTo(s)} className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-ink-2 hover:border-action-2 hover:text-action">#{s}</Link>)}</div></div></div>
+        <div className="mt-3 flex flex-wrap gap-1.5">{a.subjects.map((s) => tagN(s) > 1 ? <Link key={s} to={tagTo(s)} className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-ink-2 hover:border-action-2 hover:text-action">#{s}</Link> : <span key={s} className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-ink-2">#{s}</span>)}</div></div></div>
         <ReaderBar a={a} faq={faqs.length > 0} z={z} setZ={setZ} /><div style={{ zoom: SIZES[z] }}>
         {at && <AtPassage a={a} at={at} />}
         <div id="r-overview" className="scroll-mt-16"><Overview a={a} mode={mode} setMode={setMode} /></div>
@@ -824,7 +829,8 @@ export default function App() {
             {consent?.counter && <a href="https://www.flagcounter.me/details/c0i" target="_blank" rel="noopener noreferrer"><img src="https://www.flagcounter.me/c0i/" alt="Flag Counter: visitors by country" referrerPolicy="no-referrer" className="max-w-[150px]" /></a>}
           </div>
         </div>
-        <p className="border-t border-white/15 px-4 py-4 text-center text-xs text-white/65">Proof of concept: summaries, questions and answers, and related-reading notes are AI-generated, so check the original. · <a href="#/about" className="underline hover:text-white">About</a> · <a href="#/privacy" className="underline hover:text-white">Privacy</a> · <button type="button" onClick={openCookieSettings} className="underline hover:text-white">Cookie settings</button></p>
+        <p className="border-t border-white/15 px-4 pt-4 text-center text-xs text-white/80"><a href="mailto:roque.almodiel@gmail.com?subject=A%20similar%20site%20for%20our%20repository" className="inline-flex min-h-11 items-center gap-2 underline hover:text-white"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>Want a similar site for your repository, public or intranet? Email the developer.</a></p>
+        <p className="px-4 pb-4 pt-1 text-center text-xs text-white/65">Proof of concept: summaries, questions and answers, and related-reading notes are AI-generated, so check the original. · <a href="#/about" className="underline hover:text-white">About</a> · <a href="#/privacy" className="underline hover:text-white">Privacy</a> · <button type="button" onClick={openCookieSettings} className="underline hover:text-white">Cookie settings</button></p>
       </footer>
       <CookieConsent />
     </>
