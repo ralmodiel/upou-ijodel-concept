@@ -5,6 +5,7 @@ recs = {}
 for l in open("data/records.jsonl"):
     r = json.loads(l); recs[r["urls"][0].rstrip("/").split("/")[-1]] = r
 sums = {j["article"]: j for j in map(json.loads, open("data/summaries.jsonl"))}
+diffs = {j["article"]: j["paras"] for j in map(json.loads, open("data/differentiators.jsonl"))} if os.path.exists("data/differentiators.jsonl") else {}  # differentiate.py
 chunks = [json.loads(l) for l in open("data/chunks.jsonl")]
 v = np.fromfile("web/public/index/vecs.bin", dtype="float32").reshape(len(chunks), -1)
 ids = [a for a in recs if a in sums]
@@ -35,7 +36,7 @@ for n, a in enumerate(ids):
     near = [ids[m] for m in np.argsort(-sim[n]) if m != n][:6]
     arts.append({"id": a, "title": r["title"], "authors": [alias.get(x, x) for x in r["authors"]], "year": years.get(a) or (r["date"] or "")[:4], "url": r["urls"][0],
         "abstract": r.get("abstract") or "", "subjects": sorted({tag_label[tk(t)] for t in r.get("subjects") or [] if tk(t) and len(t) <= 40}), "issue": issue_of(r), "motif": motif.get(a, "book"), "half": s["half"], "one": s["one"], "two": s["two"],
-        "categories": cats.get(a, []), "related": [{"id": b, "why": why.get((a, b), "")} for b in near]})
+        "categories": cats.get(a, []), **({"diff": diffs[a]} if a in diffs else {}), "related": [{"id": b, "why": why.get((a, b), "")} for b in near]})
 # faq_judge.py verdicts: an answer its cited passage does not support ("no") is dropped
 judged = {(j["article"], j["q"]): j["verdict"] for j in map(json.loads, open("data/faq-judge.jsonl"))} if os.path.exists("data/faq-judge.jsonl") else {}
 faqs = []

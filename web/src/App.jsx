@@ -681,6 +681,9 @@ function Overview({ a, mode, setMode }) {
       {mode === "summary" && <p role="note" className="mt-3 rounded-md bg-crimson-soft px-3 py-2 text-sm text-ink-2"><b>AI-generated.</b> These summaries were written by a language model from the full text and may contain errors; check the original article.</p>}
       {mode === "summary" && <NoCite className="mt-2" />}
       <div className="mt-4 space-y-4 text-[17px] leading-8 text-ink">{text.split(/\n+/).map((p, i) => <p key={i}>{p}</p>)}</div>
+      {a.diff && <div className="mt-8"><h2 className="border-b border-line pb-2 font-serif text-2xl">What sets this chapter apart<AiLabel /></h2>
+        <NoCite what="AI comparison" className="mt-3" />
+        <div className="mt-4 space-y-4 text-[17px] leading-8 text-ink">{a.diff.map((p, i) => <p key={i}>{p}</p>)}</div></div>}
     </section>
   );
 }
