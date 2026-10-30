@@ -10,7 +10,7 @@ const HASH = ["/%", "/%E0%A4%A", "/search/%ZZ%", "/search/" + big, "/search/%3Ci
   "/read/__proto__", "/read/constructor", "/read/3/p/999999/%ZZ", "/read/3/p/-1/x", "/read/../../etc/passwd", "/maps/pub/__proto__", "/maps/tag/%", "/maps/x/y/z", "/maps/pub/" + big.slice(0, 5000),
   "/list/share/x/" + ids, "/list/share/%/%", "/list/share/" + big.slice(0, 3000) + "/3", "/list/__proto__", "/advanced/" + big.slice(0, 2000), "/advanced?s=%7B%22req%22%3A1%7D", "/cat/%", "/tag/__proto__", "/year/-1e309", "/issue/0.0", "/" + "/".repeat(500), "/ /\u0000/\uD800"];
 const BAD = ['{"__proto__":{"x":1}}', "null", "1", '"str"', "[[[[]]]]", "{", big, '{"req":[{"k":"tag","v":{"a":1}}],"boost":5}', '[{"name":1,"ids":"x"}]', '[null,{"name":"' + big.slice(0, 1000) + '"}]'];
-const KEYS = ["ijodel-lists", "ijodel-list", "ijodel-adv", "ijodel-adv-mode", "ijodel-recent", "ijodel-saved", "ijodel-cite", "ijodel-tour", "ijodel-consent"];
+const KEYS = ["ijodel-lists", "ijodel-list", "ijodel-adv", "ijodel-adv-mode", "ijodel-recent", "ijodel-saved", "ijodel-cite", "ijodel-tour", "ijodel-map-seed", "ijodel-consent"];
 async function check(name, hash, seed) {
   const c = await b.newContext(); await c.addInitScript(([seed]) => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true })); for (const [k, v] of seed) localStorage.setItem(k, v); } catch {} }, [seed]);
   const p = await c.newPage(), errs = []; p.on("pageerror", (e) => errs.push(e.message)); p.on("crash", () => errs.push("crash"));

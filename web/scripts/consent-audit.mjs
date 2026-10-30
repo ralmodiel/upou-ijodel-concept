@@ -7,7 +7,7 @@ import { chromium } from "playwright-core"; import { homedir } from "os";
 const U = "http://localhost:4173";
 const b = await chromium.launch({ executablePath: `${homedir()}/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`, args: ["--no-sandbox"] });
 let n = 0, bad = 0; const ok = (m, c, x = "") => { n++; console.log(`${c ? "PASS" : "FAIL"} ${m} ${x}`); if (!c) bad++; };
-const LISTS = /^ijodel-(lists|list)$/, PREF = /^ijodel-(adv|adv-mode|recent|saved|cite|tour|text)$/, NEC = new Set(["ijodel-consent"]), SESSION = new Set(["ijodel-chunk-retry", "ijodel-lite"]);
+const LISTS = /^ijodel-(lists|list)$/, PREF = /^ijodel-(adv|adv-mode|recent|saved|cite|tour|text|map-seed)$/, NEC = new Set(["ijodel-consent"]), SESSION = new Set(["ijodel-chunk-retry", "ijodel-lite"]);
 const MODEL_STORES = new Set(["ijodel", "transformers-cache", "experimental_transformers-hash-cache"]);
 const dump = (p) => p.evaluate(async () => ({ ls: Object.keys(localStorage), ss: Object.keys(sessionStorage),
   idb: (await indexedDB.databases()).map((d) => d.name), cache: await caches.keys() }));
@@ -64,7 +64,7 @@ for (const k of found) if (!PREF.test(k)) ok(`privacy notice names "${k}"`, text
 // round 92: the storage table comes from the code: every "ijodel-*" key literal in src must be a known store, and each preference key's purpose is named
 const fs = await import("fs"), src = fs.readdirSync(new URL("../src", import.meta.url)).map((f) => fs.readFileSync(new URL("../src/" + f, import.meta.url), "utf8")).join("\n");
 const EVENTS = new Set(["ijodel-open-cookies", "ijodel-update"]), keys = [...new Set([...src.matchAll(/"(ijodel-[a-z-]+[a-z])"/g)].map((m) => m[1]))].filter((k) => !EVENTS.has(k));
-const PURPOSE = { "ijodel-lists": /view lists/, "ijodel-list": /view lists/, "ijodel-adv": /advanced-search filters/, "ijodel-adv-mode": /their mode/, "ijodel-recent": /recent searches/, "ijodel-saved": /saved (and recent )?searches/, "ijodel-cite": /citation style/, "ijodel-tour": /quick tour/i, "ijodel-text": /reader text size/ };
+const PURPOSE = { "ijodel-lists": /view lists/, "ijodel-list": /view lists/, "ijodel-adv": /advanced-search filters/, "ijodel-adv-mode": /their mode/, "ijodel-recent": /recent searches/, "ijodel-saved": /saved (and recent )?searches/, "ijodel-cite": /citation style/, "ijodel-tour": /quick tour/i, "ijodel-text": /reader text size/, "ijodel-map-seed": /last map seed/ };
 const unknown = keys.filter((k) => !PREF.test(k) && !LISTS.test(k) && !NEC.has(k) && !SESSION.has(k) && k !== "ijodel-offline");
 ok("every storage key in the code is a known store", !unknown.length, `(${keys.length} keys${unknown.length ? "; unknown " + unknown.join(" ") : ""})`);
 for (const k of keys.filter((k) => PREF.test(k))) ok(`privacy notice explains preference "${k}"`, PURPOSE[k]?.test(text), PURPOSE[k] ? "" : "(no purpose mapped)");

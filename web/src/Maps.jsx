@@ -1,3 +1,4 @@
+import { pref } from "./consent.js";
 import { weakDevice } from "./device.js";
 import { Component, lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from "d3-force";
@@ -128,6 +129,8 @@ function seedOptions(kind) {
 export function Maps({ kind = "pub", id }) {
   const S = window.__S, { areas, past, mode: advMode } = useAdv(), svg = useRef(null);
   if (!["pub", "tag", "author"].includes(kind)) kind = "pub";
+  useEffect(() => { if (id) pref.set("ijodel-map-seed", JSON.stringify({ kind, id })); }, [kind, id]);
+  useEffect(() => { if (id) return; try { const q = JSON.parse(pref.get("ijodel-map-seed") || "null"); if (q && ["pub", "tag", "author"].includes(q.kind) && typeof q.id === "string" && q.id.length < 300 && (q.kind !== "pub" || S.byId[q.id])) location.replace(`#/maps/${q.kind}/${encodeURIComponent(q.id)}`); } catch { /* no saved seed */ } }, []);
   const seedId = id || S.articles[0].id;
   const [on, setOn] = useState({ rel: true, rec: true, tag: true, tagrel: false, issue: false, category: true, author: true }), [shapes, setShapes] = useState(true), [choice, setMode] = useState(null), [dim, setDim] = useState("2d"), g3 = useRef(null), [fail, setFail] = useState("");
   const lv = Math.max(1, ...OPTS.filter(([o]) => on[o]).map(([o]) => TIER[o])); // Levels follows the ticked options (and ticks follow it when chosen)
