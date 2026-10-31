@@ -10,3 +10,11 @@ export const shortestPath = (adj, from, to) => {
   for (let i = 0; i < q.length && !prev.has(to); i++) for (const [y, l] of adj.get(q[i]) || []) if (!prev.has(y)) { prev.set(y, l); q.push(y); }
   const out = []; for (let c = to, l; (l = prev.get(c)); c = l.source.id === c ? l.target.id : l.source.id) out.push(l); return out;
 };
+
+// Official UPOU title for an author string ("Surname, Given" -> "Dr. Given Surname"), built once from the articles' `at`. Display only: never a filter value, key or citation.
+export function titledAuthor(S, x) {
+  const t = (S.atitle ||= new Map(S.articles.flatMap((a) => Object.entries(a.at || {})))).get(x);
+  if (!t) return x;
+  const [s, g] = x.split(/,\s*(.*)/s);
+  return `${t} ${g ? `${g} ${s}` : x}`;
+}

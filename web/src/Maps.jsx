@@ -3,7 +3,7 @@ import { weakDevice } from "./device.js";
 import { Component, lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from "d3-force";
 import { recommend } from "./recommend.js";
-import { adjacency, shortestPath } from "./graph.js";
+import { adjacency, shortestPath, titledAuthor } from "./graph.js";
 import { AddBtn, EMPTY, Icon, Link, MapsIntro, clip, issueKey, lazyRetry, slug } from "./App.jsx";
 import { AREAS, addChip, chipCount, setMode as setAdvMode, undo, useAdv } from "./Advanced.jsx";
 
@@ -39,7 +39,7 @@ function build(kind, id, on) {
   const pub = (a) => node("p:" + a.id, "pub", a.title, 1, a.id);
   const tag = (t) => node("t:" + t, "tag", t, cnt("subjects", t), t);
   const cat = (c) => node("c:" + c, "category", c, cnt("categories", c), c);
-  const auth = (x) => node("a:" + x, "author", x, cnt("authors", x), x);
+  const auth = (x) => node("a:" + x, "author", titledAuthor(S, x), cnt("authors", x), x);
   const iss = (a) => node("i:" + issueKey(a), "issue", S.issues[issueKey(a)]?.theme || a.issue.label, cnt("issue", issueKey(a)), issueKey(a));
   let seed;
   if (kind === "pub") {

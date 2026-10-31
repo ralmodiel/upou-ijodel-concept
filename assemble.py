@@ -29,6 +29,8 @@ for r in recs.values():
 tag_label = {k: c.most_common(1)[0][0] for k, c in spell.items()}
 motif = {json.loads(l)['id']: json.loads(l)['motif'] for l in open('data/motifs.jsonl')} if os.path.exists('data/motifs.jsonl') else {}
 alias = {k: v for k, v in json.load(open("data/author-aliases.json")).items() if not k.startswith("_")} if os.path.exists("data/author-aliases.json") else {}
+# official UPOU titles (Dr., Prof., ...) per author string, from the public faculty pages: data/author-titles.json -> article "at" {author: title}, shown on map labels only
+atitle = {k: v["title"] for k, v in json.load(open("data/author-titles.json")).items() if not k.startswith("_")} if os.path.exists("data/author-titles.json") else {}
 years = {k: v for k, v in json.load(open("data/year-decisions.json")).items() if not k.startswith("_")} if os.path.exists("data/year-decisions.json") else {}
 arts = []
 for n, a in enumerate(ids):
@@ -36,7 +38,7 @@ for n, a in enumerate(ids):
     near = [ids[m] for m in np.argsort(-sim[n]) if m != n][:6]
     arts.append({"id": a, "title": r["title"], "authors": [alias.get(x, x) for x in r["authors"]], "year": years.get(a) or (r["date"] or "")[:4], "url": r["urls"][0],
         "abstract": r.get("abstract") or "", "subjects": sorted({tag_label[tk(t)] for t in r.get("subjects") or [] if tk(t) and len(t) <= 40}), "issue": issue_of(r), "motif": motif.get(a, "book"), "half": s["half"], "one": s["one"], "two": s["two"],
-        "categories": cats.get(a, []), **({"diff": diffs[a]} if a in diffs else {}), "related": [{"id": b, "why": why.get((a, b), "")} for b in near]})
+        "categories": cats.get(a, []), **({"diff": diffs[a]} if a in diffs else {}), **({"at": at} if (at := {x: atitle[x] for x in (alias.get(y, y) for y in r["authors"]) if x in atitle}) else {}), "related": [{"id": b, "why": why.get((a, b), "")} for b in near]})
 # faq_judge.py verdicts: an answer its cited passage does not support ("no") is dropped
 judged = {(j["article"], j["q"]): j["verdict"] for j in map(json.loads, open("data/faq-judge.jsonl"))} if os.path.exists("data/faq-judge.jsonl") else {}
 faqs = []
