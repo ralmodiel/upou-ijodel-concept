@@ -1,13 +1,13 @@
 // Release check (run in web/): node scripts/verify.mjs [--all]
 // Builds, then checks budgets (gzip KB), sitemap vs read pages, JSON-LD, no ojs_brand / dead asset refs in dist.
-// --all also runs: node scripts/a11y.mjs ; node scripts/phone.mjs ; node e2e/ui.mjs (e2e needs `npx vite preview` on :4173).
+// --all also runs every gate script (list at the end), phone.mjs at W=390/768/1300 and e2e/ui.mjs (browser ones need `npx vite preview` on :4173).
 // Prints "N checks, M FAIL" and exits 1 on any failure.
 import fs from "node:fs"; import path from "node:path"; import zlib from "node:zlib"; import { execSync } from "node:child_process";
 const web = path.resolve(import.meta.dirname, ".."), dist = path.join(web, "dist");
 let n = 0, bad = 0;
 const check = (ok, msg) => { n++; if (!ok) bad++; fs.writeSync(1, `${ok ? "ok  " : "FAIL"} ${msg}\n`); };
-const run = (cmd) => { try { execSync(cmd, { cwd: web, stdio: "pipe" }); return true; } catch { return false; } };
-check(run("npx vite build"), "vite build");
+const run = (cmd) => { try { return [true, execSync(cmd, { cwd: web, stdio: "pipe", encoding: "utf8" })]; } catch (e) { return [false, `${e.stdout ?? ""}`]; } };
+check(run("npx vite build")[0], "vite build");
 const gz = (f) => zlib.gzipSync(fs.readFileSync(f)).length / 1024;
 const assets = fs.readdirSync(path.join(dist, "assets")).map((f) => path.join(dist, "assets", f));
 // R246: the h1 font (Merriweather 400 latin) is preloaded with crossorigin, same-origin, and the file exists
@@ -49,5 +49,9 @@ for (const src of fs.readdirSync(path.join(web, "src"))) for (const [, u] of fs.
 check(!dead.length, `asset references resolve (${dead.length} dead${dead.length ? ": " + dead.slice(0, 5).join(", ") : ""})`);
 const leak = fs.readdirSync(dist, { recursive: true }).filter((f) => /\.(map|pdf)$|(^|\/)\.env|^data\//.test(f)); // R198: no source maps, PDFs, .env or data/ in dist
 check(!leak.length, `no source maps, .pdf, .env or data/ in dist (${leak.length}${leak.length ? ": " + leak.slice(0, 5).join(", ") : ""})`);
-if (process.argv.includes("--all")) for (const c of ["node scripts/a11y.mjs", "node scripts/phone.mjs", "timeout 118 node e2e/ui.mjs"]) check(run(c), c);
+// R290: --all runs every gate script one after another (browser ones need :4173; never two browser gates at once) and shows each one's verdict line
+const node = "audit-data bundle cite-check consent-unit deps dym-unit engine-unit graph-unit headers key-audit links-check lru-unit map-contrast parse-query recommend-unit related-audit sw-unit terms tokens suggest-eval summary-audit adv-fuzz search-eval stress perf";
+const browser = "a11y consent-audit fuzz-inputs href-allow third-party map-reader-probe nav-save prefetch-check search-ui matrix frame-time heap";
+if (process.argv.includes("--all")) for (const c of [...`${node} ${browser}`.split(" ").map((s) => `node scripts/${s}.mjs`), ...[390, 768, 1300].map((w) => `W=${w} node scripts/phone.mjs`), "timeout 900 node e2e/ui.mjs"]) {
+  const [ok, out] = run(c); check(ok, `${c} -> ${out.trim().split("\n").at(-1)}`); }
 fs.writeSync(1, `${n} checks, ${bad} FAIL\n`); process.exit(bad ? 1 : 0);

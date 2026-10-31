@@ -5,7 +5,7 @@ const b = await chromium.launch({ executablePath: `${homedir()}/.cache/ms-playwr
 const ctx = await b.newContext({ viewport: { width: +(process.env.W || 390), height: 844 }, hasTouch: true, isMobile: true });
 await ctx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); } catch {} });
 const p = await ctx.newPage();
-const routes = ["/", "/search/libre", "/advanced", "/maps", "/read/3"]; let bad = 0;
+const routes = ["/", "/search/libre", "/advanced", "/maps", "/read/3", "/issues"]; let bad = 0; // R292: 6 routes, run at W=390, 768 and 1300
 for (const r of routes) {
   await p.goto("http://localhost:4173/#" + r); await p.waitForTimeout(1500);
   const o = await p.evaluate(() => { const w = document.documentElement.clientWidth; const off = [...document.body.querySelectorAll("*")].filter((e) => { const r = e.getBoundingClientRect(); return r.width && r.right > w + 1 && !e.closest(".row-track, [class*=overflow-x], [class*=overflow-hidden], svg, canvas") && getComputedStyle(e).position !== "fixed"; }).slice(0, 3).map((e) => e.tagName + "." + String(e.className).slice(0, 40)); return { over: document.documentElement.scrollWidth > w, off }; });
@@ -31,8 +31,8 @@ for (const [label, r, fresh, fs] of [["home, fresh visitor", "/", true], ["home,
 { const c3 = await b.newContext({ viewport: { width: +(process.env.W || 390), height: 844 }, hasTouch: true, isMobile: true }); const q = await c3.newPage(); await q.goto("http://localhost:4173/#/"); await q.waitForTimeout(1500);
   const o = await q.evaluate(() => { const d = document.querySelector('[role=dialog][aria-label="Cookie and privacy choices"]'), s = document.querySelector('input[role=combobox]'); if (!d || !s) return { miss: true }; const a = d.getBoundingClientRect(), r = s.getBoundingClientRect(); return { h: a.height / innerHeight, cover: r.bottom > 0 && r.top < innerHeight && a.left < r.right && r.left < a.right && a.top < r.bottom && r.top < a.bottom }; });
   if (o.miss || o.h > 0.4 || o.cover) { overlap++; console.log("BANNER", JSON.stringify(o)); } else console.log("banner height", o.h.toFixed(2), "of viewport, search box clear"); await c3.close(); }
-// R114/R115: the map starts above the fold; touch targets on /maps and /advanced are >= 40px high.
-{ const c4 = await b.newContext({ viewport: { width: +(process.env.W || 390), height: 844 }, hasTouch: true, isMobile: true }); await c4.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); } catch {} }); const q = await c4.newPage();
+// R114/R115: the map starts above the fold; touch targets on /maps and /advanced are >= 40px high. Phone layout only (below the sm: 640px breakpoint, R292).
+if (+(process.env.W || 390) < 640) { const c4 = await b.newContext({ viewport: { width: +(process.env.W || 390), height: 844 }, hasTouch: true, isMobile: true }); await c4.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); } catch {} }); const q = await c4.newPage();
   await q.goto("http://localhost:4173/#/maps/pub/3"); await q.waitForSelector('svg[aria-label="Relationship map"]'); await q.waitForTimeout(800);
   const top = await q.evaluate(() => Math.round(document.querySelector('svg[aria-label="Relationship map"]').getBoundingClientRect().top)); if (top >= 560) { overlap++; console.log("MAP TOP", top, "px (limit 560)"); } else console.log("map top", top, "px");
   for (const r of ["/maps/pub/3", "/advanced"]) { await q.goto("http://localhost:4173/#" + r); await q.waitForTimeout(1200);
@@ -46,7 +46,7 @@ for (const [label, r, fresh, fs] of [["home, fresh visitor", "/", true], ["home,
 // R163: the quick tour card stays inside the viewport on every step. R165: on /maps the "Maps" tab is inside the nav's visible box.
 { const c5 = await b.newContext({ viewport: { width: +(process.env.W || 390), height: 844 }, hasTouch: true, isMobile: true }); await c5.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); } catch {} }); const q = await c5.newPage();
   await q.goto("http://localhost:4173/#/"); await q.waitForSelector('section[aria-label="Quick tour"]'); const out = [];
-  for (let i = 0; i < 5; i++) { const r = await q.evaluate(() => { const e = document.querySelector('section[aria-label="Quick tour"]').getBoundingClientRect(); return [e.left, e.right]; }); if (r[0] < 0 || r[1] > 390.5) out.push(`step ${i + 1} ${r.map(Math.round)}`); const nx = q.getByRole("button", { name: "Next" }); if (!(await nx.count())) break; await nx.click(); }
+  for (let i = 0; i < 5; i++) { const r = await q.evaluate(() => { const e = document.querySelector('section[aria-label="Quick tour"]').getBoundingClientRect(); return [e.left, e.right, innerWidth]; }); if (r[0] < 0 || r[1] > r[2] + 0.5) out.push(`step ${i + 1} ${r.map(Math.round)}`); const nx = q.getByRole("button", { name: "Next" }); if (!(await nx.count())) break; await nx.click(); }
   await q.goto("http://localhost:4173/#/maps"); await q.waitForTimeout(1200);
   const t = await q.evaluate(() => { const n = document.querySelector('nav[aria-label="Main"]'), a = [...n.querySelectorAll("a")].find((x) => x.textContent.trim() === "Maps"), A = a.getBoundingClientRect(), N = n.getBoundingClientRect(); return A.left >= N.left - 0.5 && A.right <= N.right + 0.5; });
   if (out.length || !t) { overlap++; console.log("TOUR/NAV", out.join("; "), "mapsTabVisible", t); } else console.log("tour inside viewport on every step; Maps tab visible in nav"); await c5.close(); }

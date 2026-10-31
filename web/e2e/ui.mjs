@@ -11,8 +11,8 @@ await ctx.route((u) => !/\.(js|css|json|bin|png|jpg|webp|svg|woff2?|onnx|wasm)(\
 const p = await ctx.newPage();
 const errs = []; p.on("pageerror", (e) => errs.push(e.message));
 const csp = []; p.on("console", (m) => /Content Security Policy/i.test(m.text()) && csp.push(m.text()));
-let bad = 0;
-const ok = (n, c, x = "") => { console.log(`${c ? "PASS" : "FAIL"} ${n} ${x}`); if (!c) bad++; };
+let bad = 0, nChecks = 0;
+const ok = (n, c, x = "") => { nChecks++; console.log(`${c ? "PASS" : "FAIL"} ${n} ${x}`); if (!c) bad++; };
 const U = "http://localhost:4173/#";
 const chips = (area) => p.locator(`xpath=//h2[normalize-space()="${area}"]/ancestor::div[contains(@class,"rounded-xl")][1]`);
 const wait = (ms = 400) => p.waitForTimeout(ms);
@@ -601,6 +601,17 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
   await o.evaluate(() => document.getElementById("r-related").scrollIntoView({ block: "start" })); await o.waitForTimeout(400);
   const rel = await cur("Related").getAttribute("aria-current"), abs = await cur("Abstract").getAttribute("aria-current");
   ok("R275 scrolled to Related: that link has aria-current=location, Abstract does not", rel === "location" && abs === null, `${rel} ${abs}`); await cx.close(); }
+{ const cx = await b.newContext({ viewport: { width: 1400, height: 900 } }), o = await cx.newPage(), pe = []; o.on("pageerror", (e) => pe.push(e.message)); await cx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true })); } catch {} }); // R291/R294, fresh context
+  const h1 = async () => { await o.waitForSelector("h1"); await o.waitForTimeout(900); return (await o.locator("h1").first().innerText()).trim(); }, diff = [];
+  for (const r of ["/", "/search/libre", "/advanced", "/maps", "/read/3", "/issues", "/topics", "/list"]) { await o.goto(U + r); const a = await h1(); await o.reload(); if (a !== await h1()) diff.push(r); }
+  ok("R291 reload on 8 routes keeps the same h1, no page error", !diff.length && !pe.length, `${diff.join(" ")} ${pe[0] ?? ""}`);
+  const hidden = [], seen = new Set(); let stuck = 0; // 4 routes x 50 Tab presses: the focused element is on screen and focus moves every press
+  for (const r of ["/", "/search/libre", "/advanced", "/maps"]) { await o.goto(U + r); await h1(); let prev = null;
+    for (let i = 0; i < 50; i++) { await o.keyboard.press("Tab");
+      const f = await o.evaluate(() => { const e = document.activeElement; if (!e || e === document.body) return null; const q = e.getBoundingClientRect(), c = getComputedStyle(e);
+        return { id: `${e.tagName}|${(e.getAttribute("aria-label") || e.textContent || "").trim().slice(0, 30)}|${Math.round(q.x)},${Math.round(q.y + scrollY)}`, vis: q.width > 0 && q.height > 0 && q.bottom > 0 && q.top < innerHeight && q.right > 0 && q.left < innerWidth && c.visibility !== "hidden" && +c.opacity > 0 }; });
+      if (!f) { prev = null; continue; } seen.add(r + f.id); if (!f.vis) hidden.push(r + " " + f.id); if (f.id === prev) stuck++; prev = f.id; } }
+  ok("R294 200-press Tab walk (Home, Search, Advanced, Maps): every focused element visible, focus never stuck", !hidden.length && !stuck && seen.size > 150, `${seen.size} distinct, ${hidden.length} hidden, ${stuck} stuck ${hidden.slice(0, 2).join(" | ")}`); await cx.close(); }
 ok("no page errors (rounds 38-46)", errs.length === 0, errs.slice(0, 2).join(" | "));
 ok("no CSP violations by the end (model load included)", !csp.length, csp[0]?.slice(0, 120) ?? "");
-await b.close(); process.exit(bad ? 1 : 0);
+console.log(`${nChecks} checks, ${bad} FAIL`); await b.close(); process.exit(bad ? 1 : 0);
