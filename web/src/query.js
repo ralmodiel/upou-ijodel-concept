@@ -9,3 +9,5 @@ export const parseQuery = (q) => {
   }).replace(/\s+/g, " ").trim();
   return { ...o, text };
 };
+// Newest first, case-insensitive de-duplication, at most n entries (recent searches 10, saved 30).
+export const pushUniq = (list, q, n) => [q, ...list.filter((x) => x.toLowerCase() !== q.toLowerCase())].slice(0, n);

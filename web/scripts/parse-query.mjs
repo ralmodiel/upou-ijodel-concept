@@ -15,4 +15,7 @@ const C = [
   ['"a b" -c author:d year:2001 e', (r) => r.phrases.length === 1 && r.neg[0] === "c" && r.author === "d" && r.y[0] === 2001 && r.ops.length === 4 && r.text === "a b e"],
 ];
 let bad = 0; for (const [q, f] of C) { const r = parseQuery(q); if (!f(r)) { bad++; console.log("FAIL", JSON.stringify(q), JSON.stringify(r)); } }
-console.log(`${C.length} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);
+import { pushUniq } from "../src/query.js";
+let l = []; for (let i = 0; i < 40; i++) l = pushUniq(l, "Q" + (i % 35), 10); l = pushUniq(l, "q5", 10); // R201
+if (l.length > 10 || l[0] !== "q5" || l.filter((x) => x.toLowerCase() === "q5").length !== 1) { bad++; console.log("FAIL pushUniq"); }
+console.log(`${C.length + 1} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);

@@ -48,7 +48,6 @@ g[data-node]:focus-visible > g:not([aria-hidden]) { stroke: var(--color-action-2
 .row-btn { position: absolute; top: 40%; z-index: 5; display: none; width: 2.75rem; height: 2.75rem; place-items: center; border-radius: 9999px; cursor: pointer;
   background: var(--color-glass); backdrop-filter: blur(8px); border: 1px solid var(--color-line); box-shadow: 0 4px 14px rgb(55 54 55 / .2); opacity: 0; transition: opacity var(--dur-fast), transform var(--dur-fast); }
 @media (hover: hover) and (pointer: fine) { .row-btn { display: grid; opacity: .92; } .row:hover .row-btn, .row:focus-within .row-btn { opacity: 1; } .row-btn:active { transform: scale(.94); } }
-.hero-bg { position: absolute; inset: -2rem; background-size: cover; background-position: top; filter: blur(28px) saturate(1.2); transform: scale(1.1); }
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 .rise { animation: rise var(--dur-slow) var(--ease-std) both; }
 @keyframes bob { 50% { transform: translateY(3px); } }

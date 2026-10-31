@@ -473,6 +473,13 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
   await dlg.getByRole("button", { name: "Essential only" }).click().catch(() => {}); await t.waitForTimeout(300);
   const s = await t.evaluate(() => [JSON.parse(localStorage.getItem("ijodel-consent") || "{}").v, localStorage.getItem("ijodel-lists")]);
   ok("R199 consent: a record from an older notice re-asks; Essential only then removes the old list", shown && s[0] === 1 && s[1] === null, JSON.stringify(s)); await cx.close(); }
+{ const cx = await b.newContext(); await cx.addInitScript(() => { localStorage.setItem("ijodel-consent", JSON.stringify({ v: 1, prefs: false, lists: false })); }); // R204/R205
+  const k = await cx.newPage(); await k.goto(U + "/"); await k.waitForSelector("text=Latest issues"); await k.keyboard.press("/"); await wait(100);
+  const foc = await k.evaluate(() => document.activeElement?.getAttribute("role")); await k.keyboard.press("/"); const typed = await k.evaluate(() => document.activeElement.value);
+  ok("R205 '/' focuses the search box; inside it, '/' is typed", foc === "combobox" && typed === "/", `(${foc} ${typed})`);
+  await k.evaluate(() => document.activeElement.blur()); await k.keyboard.press("Shift+?"); const dlg = k.getByRole("dialog", { name: "Keyboard shortcuts" }); await dlg.waitFor({ timeout: 3000 }).catch(() => {});
+  const nli = await dlg.locator("li").count(); await k.keyboard.press("Escape"); await wait(200);
+  ok("R204 '?' opens the shortcuts dialog (5 items); Esc closes it", nli === 5 && !(await dlg.isVisible()), `(${nli})`); await cx.close(); }
 ok("no page errors (rounds 38-46)", errs.length === 0, errs.slice(0, 2).join(" | "));
 ok("no CSP violations by the end (model load included)", !csp.length, csp[0]?.slice(0, 120) ?? "");
 await b.close(); process.exit(bad ? 1 : 0);

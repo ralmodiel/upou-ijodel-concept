@@ -8,6 +8,9 @@ for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".jsx"))) { const t
 // R193: the four empty states share App.jsx's EMPTY dashed card (the element holding the text uses className={EMPTY})
 const src = (f) => fs.readFileSync(new URL(f, dir), "utf8");
 for (const [f, s] of [["App.jsx", "<p>Nothing found"], ["App.jsx", "This list is empty."], ["Maps.jsx", "Nothing to map"], ["Advanced.jsx", "No chapter fits"]]) if (!src(f).includes("className={EMPTY}>" + s)) odd.push(`${f} empty state "${s}" is not className={EMPTY}`);
+// R202/R203: no bare #000 in Maps.jsx; no text-[Npx] literals (use the type scale)
+if (/#000\b/.test(src("Maps.jsx"))) odd.push("Maps.jsx has #000");
+for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".jsx"))) if (/text-\[\d+px\]/.test(src(f))) odd.push(f + " has text-[Npx]");
 if (odd.length) console.log(`FAIL Icon stroke widths outside {1.5, 2} or empty states off the shared card: ${odd.join(", ")}`);
 if (!fs.existsSync(bf)) { fs.writeFileSync(bf, JSON.stringify({ arbitrary: n }) + "\n"); console.log(`baseline recorded: ${n} arbitrary values`); process.exit(0); }
 const base = JSON.parse(fs.readFileSync(bf, "utf8")).arbitrary;

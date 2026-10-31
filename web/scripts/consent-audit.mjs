@@ -53,6 +53,7 @@ for (const [name, v] of Object.entries(states)) {
   ok(`${name}: offline cache only under prefs consent`, s.cache.some((k) => /^ijodel-offline-/.test(k)) === !!a.prefs, `[${s.cache.join(" ")}]`);
   const hostBad = [...hosts].filter((h) => !(a.model && /huggingface\.co$|hf\.co$|jsdelivr\.net$/.test(h)) && !(a.counter && /flagcounter\.me$/.test(h)));
   ok(`${name}: third parties only as allowed`, name === "withdrawn" || !hostBad.length, `[${[...hosts].join(" ")}]`);
+  ok(`${name}: document.cookie is empty (R209)`, (await p.evaluate(() => document.cookie)) === "");
   ok(`${name}: no cookies outside Flag Counter consent`, cookies.every((k) => a.counter && /flagcounter/.test(k.domain)), `[${cookies.map((k) => k.domain + ":" + k.name).join(" ")}]`);
   if (name === "undecided") ok("undecided: consent banner shown", await p.getByRole("dialog", { name: "Cookie and privacy choices" }).count() > 0);
   await c.close();

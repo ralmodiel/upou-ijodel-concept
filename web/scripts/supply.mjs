@@ -10,6 +10,12 @@ const bom = JSON.parse(fs.readFileSync(f, "utf8")), comps = bom.components || []
 ok("SBOM is CycloneDX", bom.bomFormat === "CycloneDX" && !!bom.specVersion, bom.specVersion);
 const lock = JSON.parse(fs.readFileSync(path.join(web, "package-lock.json"), "utf8")).packages;
 const run = Object.entries(lock).filter(([k, v]) => k && !v.dev && !v.optional).map(([k, v]) => k.split("node_modules/").pop() + "@" + v.version);
+// R208: offline lockfile hygiene: https registry.npmjs.org, integrity hash, exact versions in package.json
+const ent = Object.entries(lock).filter(([k, v]) => k && !v.link), pj = JSON.parse(fs.readFileSync(path.join(web, "package.json"), "utf8"));
+ok("every lock entry resolves to https://registry.npmjs.org", ent.every(([, v]) => v.resolved?.startsWith("https://registry.npmjs.org/")), ent.filter(([, v]) => !v.resolved?.startsWith("https://registry.npmjs.org/")).slice(0, 2).map(([k]) => k).join(" "));
+ok("every lock entry has an integrity hash", ent.every(([, v]) => v.integrity), ent.filter(([, v]) => !v.integrity).slice(0, 2).map(([k]) => k).join(" "));
+const rng = Object.entries({ ...pj.dependencies, ...pj.devDependencies }).filter(([, v]) => !/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(v));
+ok("package.json versions are exact", !rng.length, rng.slice(0, 3).join(" "));
 const have = new Set(comps.map((c) => (c.group ? c.group + "/" : "") + c.name + "@" + c.version)), miss = run.filter((x) => !have.has(x));
 ok("SBOM lists every runtime lockfile package", !miss.length, `(${run.length} runtime, ${comps.length} in SBOM${miss.length ? "; missing " + miss.slice(0, 3).join(" ") : ""})`);
 ok("every component has a purl", comps.every((c) => c.purl));

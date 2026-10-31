@@ -1,4 +1,4 @@
-import { parseQuery } from "./query.js";
+import { parseQuery, pushUniq } from "./query.js";
 import { weakDevice } from "./device.js";
 import { recommend } from "./recommend.js";
 import { bibtex, citeStyle, styleText, STYLES, ris } from "./cite.js";
@@ -53,7 +53,7 @@ const tagN = (t) => { const S = window.__S; S.tagN ||= S.articles.reduce((m, x) 
 const dragChip = (a) => (e) => { e.dataTransfer.setData("text/chip", JSON.stringify({ k: "pub", v: a.id, l: a.title })); e.dataTransfer.effectAllowed = "copyMove"; };
 const store = (k, v) => { try { if (v === undefined) { const a = JSON.parse(pref.get(k) || "[]"); return Array.isArray(a) ? a.slice(0, 200) : []; } pref.set(k, JSON.stringify(v)); } catch { return []; } };
 const recents = () => store("ijodel-recent").filter((x) => typeof x === "string" && x.length < 200);
-const remember = (q) => store("ijodel-recent", [q, ...recents().filter((x) => x !== q)].slice(0, 6));
+const remember = (q) => store("ijodel-recent", pushUniq(recents(), q, 10));
 const saved = () => store("ijodel-saved").filter((x) => typeof x === "string" && x.length < 200);
 // R193: one dashed card for every empty state (no results, empty list, nothing to map, no chapter fits); tokens.mjs checks the four use it
 export const EMPTY = "rounded-xl border border-dashed border-line p-8 text-center text-ink-2";
@@ -328,7 +328,7 @@ function Hero({ items }) {
           {/* the one h1 above text-3xl on purpose: the home hero (R153); every route h1 is font-serif text-3xl, normal weight */}
           <h1 className="mt-3 font-serif text-3xl leading-tight sm:text-4xl">{a.title}</h1>
           <p className="mt-3 text-white/80">{by(a)} · {a.year}</p>
-          <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-white/90">{clip(a.abstract, 300)}</p>
+          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-white/90">{clip(a.abstract, 300)}</p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link to={"/read/" + a.id} className="rounded-full bg-surface px-6 py-2.5 font-bold text-navy transition hover:brightness-105">Read</Link>
             {a.url?.startsWith("https://") && <a href={a.url} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/40 bg-white/10 px-6 py-2.5 font-medium backdrop-blur hover:bg-white/20">Original article ↗</a>}
@@ -519,7 +519,7 @@ export const Card = memo(function Card({ a, q, qa, terms, extra }) {
       <Link to={"/read/" + a.id} className="pub-link hidden w-28 shrink-0 sm:block" aria-hidden="true" tabIndex={-1}><Cover a={a} small /></Link>
       <div className="min-w-0 flex-1"><Link to={"/read/" + a.id} className="line-clamp-2 font-serif text-2xl leading-snug text-link hover:underline">{hl(a.title, q)}</Link>
       <p className="mt-1 text-sm text-ink-3">{by(a)} · {a.issue.label}</p>
-      <p className="mt-3 text-[15px] leading-relaxed text-ink-2">{hl(clip(a.abstract || a.half || "", 380), q)}</p>
+      <p className="mt-3 text-base leading-relaxed text-ink-2">{hl(clip(a.abstract || a.half || "", 380), q)}</p>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
         {a.matched?.length > 0 && <span className="rounded-full bg-crimson-soft px-2.5 py-0.5 text-link">best match: {FIELD_LABEL[a.matched[0]]}{a.matched.length > 1 ? ` +${a.matched.length - 1} more` : ""}</span>}
         <AddBtn id={a.id} className="ml-auto !bg-navy-soft" label /><Link to={"/maps/pub/" + a.id} className="font-medium text-link hover:underline">Map</Link>{a.subjects.find((t) => tagN(t) > 1) && <Link to={"/maps/tag/" + encodeURIComponent(a.subjects.find((t) => tagN(t) > 1))} title={`Map of topic: ${a.subjects.find((t) => tagN(t) > 1)}`} className="line-clamp-1 max-w-[10rem] text-link hover:underline">Topic map</Link>}{a.authors[0] && <Link to={"/maps/author/" + encodeURIComponent(a.authors[0])} title={`Map of author: ${a.authors[0]}`} className="text-link hover:underline">Author map</Link>}<Link to={"/read/" + a.id} className="font-medium text-link hover:underline">Read →</Link>
@@ -574,7 +574,7 @@ function Chip({ on, onClick, children }) {
 }
 function Search({ q0 }) {
   const all = window.__S.articles;
-  const years = [...new Set(all.map((a) => a.year))].sort((x, y) => x - y), cats = [...new Set(all.flatMap((a) => a.categories))].sort();
+  const [years, cats, issues] = useMemo(() => [[...new Set(all.map((a) => a.year))].sort((x, y) => x - y), [...new Set(all.flatMap((a) => a.categories))].sort(), new Map(all.map((a) => [issueKey(a), a.issue.label]))], [all]); // R206
   const [q, setQ] = useState(q0 || ""), [base, setBase] = useState(null);
   const [scope, setScope] = useState(SCOPES.flatMap((s) => s[0].split(","))), [cat, setCat] = useState([]), [subj, setSubj] = useState([]);
   const [from, setFrom] = useState(years[0]), [to, setTo] = useState(years.at(-1)), [author, setAuthor] = useState(""), [sort, setSort] = useState("relevance"), [view, setView] = useState("grid");
@@ -598,12 +598,12 @@ function Search({ q0 }) {
   const sc = {}; (last === "subj" ? match("subj") : res).forEach((a) => a.subjects.forEach((s) => { sc[s] = (sc[s] || 0) + 1; }));
   const subjects = Object.entries(sc).sort((x, y) => y[1] - x[1]).slice(0, allSubj ? 60 : 14).map((x) => x[0]);
   const tog = (arr, set, v, f) => { setLast(f); set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]); };
-  const issues = new Map(all.map((a) => [issueKey(a), a.issue.label])), fix = base && base.length <= 3 && pq.text ? didYouMean(pq.text) : null;
+  const fix =base && base.length <= 3 && pq.text ? didYouMean(pq.text) : null;
   const without = (raw) => "/search/" + encodeURIComponent(q0.replace(raw, " ").replace(/\s+/g, " ").trim());
   const topId = (q0 || cat.length || subj.length || au) && list[0]?.id; // the logo emblem opens the map from the top result while filters are set
   useEffect(() => { window.__top = topId || null; return () => { window.__top = null; }; }, [topId]);
   const [, bump] = useState(0), isSaved = q0 && saved().includes(q0);
-  const toggleSave = () => { store("ijodel-saved", isSaved ? saved().filter((x) => x !== q0) : [q0, ...saved()].slice(0, 20)); bump((n) => n + 1); };
+  const toggleSave = () => { store("ijodel-saved", isSaved ? saved().filter((x) => x !== q0) : pushUniq(saved(), q0, 30)); bump((n) => n + 1); };
   const authors = [...new Set(match("au").flatMap((a) => a.authors))].sort();
   const shownCats = last === "cat" || !cat.length ? cats.filter((c) => count[c] || cat.includes(c)) : cats.filter((c) => resCats.has(c) || cat.includes(c));
   const yrs = new Set(match("year").map((a) => a.year)), shownYears = years.filter((y) => yrs.has(y) || y === from || y === to);
@@ -703,11 +703,11 @@ function Overview({ a, mode, setMode }) {
         {mode === "summary" && <div role="group" aria-label="Summary length" className="flex overflow-hidden rounded-md border border-line text-sm">{LENS.map(([x, l]) => <button key={x} type="button" aria-pressed={k === x} onClick={() => setK(x)} className={seg(k === x)}>{l}</button>)}</div>}</div>
       {mode === "summary" && <p role="note" className="mt-3 rounded-md bg-crimson-soft px-3 py-2 text-sm text-ink-2"><b>AI-generated.</b> These summaries were written by a language model from the full text and may contain errors; check the original article.</p>}
       {mode === "summary" && <NoCite className="mt-2" />}
-      <div className="mt-4 space-y-4 text-[17px] leading-8 text-ink">{text.split(/\n+/).map((p, i) => <p key={i}>{p}</p>)}</div>
+      <div className="mt-4 space-y-4 text-lg leading-8 text-ink">{text.split(/\n+/).map((p, i) => <p key={i}>{p}</p>)}</div>
     </section>
     {a.diff && <section aria-label="What sets this chapter apart" className="mt-8"><h2 className="border-b border-line pb-2 font-serif text-2xl">What sets this chapter apart<AiLabel /></h2>
         <NoCite what="AI comparison" className="mt-3" />
-        <div className="mt-4 space-y-4 text-[17px] leading-8 text-ink">{a.diff.map((p, i) => <p key={i}>{p}</p>)}</div></section>}
+        <div className="mt-4 space-y-4 text-lg leading-8 text-ink">{a.diff.map((p, i) => <p key={i}>{p}</p>)}</div></section>}
     </>
   );
 }
@@ -746,7 +746,7 @@ function AtPassage({ a, at }) {
   if (p === undefined) return null;
   return <section ref={ref} tabIndex={-1} id="r-passage" aria-label="Passage from your search" className="mt-6 scroll-mt-16 rounded-xl border-l-4 border-action-2 bg-sky/20 px-4 py-3">
     <h2 className="text-2xs font-bold uppercase tracking-wide text-ink-3">From your search · PDF page {at[0]}</h2>
-    {p ? <p className="mt-1 text-[17px] leading-8 text-ink">{hl(p.text, p.terms)}</p> : <p className="mt-1 text-sm text-ink-2">That passage could not be loaded; open the original article and go to page {at[0]}.</p>}</section>;
+    {p ? <p className="mt-1 text-lg leading-8 text-ink">{hl(p.text, p.terms)}</p> : <p className="mt-1 text-sm text-ink-2">That passage could not be loaded; open the original article and go to page {at[0]}.</p>}</section>;
 }
 // "Copy link" beside a reader section heading: #/read/ID/s/<section> opens the chapter at that section
 function SecLink({ id, sec }) {
@@ -806,6 +806,26 @@ function NotFound({ route }) {
     </section>
   );
 }
+// R204/R205: "/" focuses the main search box, "?" lists the shortcuts; neither fires in a field, with a modifier, or over another dialog
+const KEYS = [["/", "Focus the search box"], ["Ctrl+Z / Ctrl+Shift+Z", "Undo / redo on the map and in Advanced search"], ["Arrow keys, Enter", "Move between map nodes; Enter explores from the selected one"], ["Alt+Left / Alt+Right", "Step through the chips of an Advanced search area"], ["?", "Show this list"]];
+function Shortcuts() {
+  const d = useRef(null);
+  useEffect(() => {
+    const f = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.("input,textarea,select,[contenteditable]") || document.querySelector("dialog[open]")) return;
+      if (e.key === "/") { const i = document.querySelector('input[role="combobox"]'); if (i) { e.preventDefault(); i.focus(); } }
+      else if (e.key === "?") { e.preventDefault(); d.current?.showModal(); }
+    };
+    addEventListener("keydown", f); return () => removeEventListener("keydown", f);
+  }, []);
+  return (
+    <dialog ref={d} aria-label="Keyboard shortcuts" className="m-auto w-full max-w-lg rounded-xl border border-line bg-surface p-5 text-ink shadow-2xl backdrop:bg-ink-fill/50 print:hidden">
+      <h2 className="font-serif text-xl">Keyboard shortcuts</h2>
+      <ul className="mt-3 space-y-2 text-sm">{KEYS.map(([k, t]) => <li key={k}><kbd className="rounded border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-xs">{k}</kbd> {t}</li>)}</ul>
+      <form method="dialog" className="mt-4 text-right"><button className="min-h-11 rounded-md bg-navy-fill px-4 text-white">Close</button></form>
+    </dialog>
+  );
+}
 export default function App() {
   const route = useHash(), [state, setState] = useState("loading");
   const [, setFaqTick] = useState(0);
@@ -855,6 +875,7 @@ export default function App() {
         <p className="px-4 pb-4 pt-1 text-center text-xs text-white/65">Proof of concept: summaries, questions and answers, and related-reading notes are AI-generated, so check the original. · <a href="#/about" className="underline hover:text-white">About</a> · <a href="#/privacy" className="underline hover:text-white">Privacy</a> · <button type="button" onClick={openCookieSettings} className="inline-block py-3 underline hover:text-white">Cookie settings</button></p>
       </footer>
       <CookieConsent />
+      <Shortcuts />
     </>
   );
 }
