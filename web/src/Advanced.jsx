@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { searchArticles } from "./engine.js";
 import { pref, allow, useDialog } from "./consent.js";
 import { suggest } from "./suggest.js";
-import { AdvIntro, Icon, Link, Pub, Card, AddBtn, ViewToggle, ResultIssues, issueKey } from "./App.jsx";
+import { AdvIntro, EMPTY, Icon, Link, Pub, Card, AddBtn, ViewToggle, ResultIssues, issueKey } from "./App.jsx";
 
 // ---- the query (four areas of filter chips), shared with the Maps page and kept in localStorage ----
 export const AREAS = [
@@ -310,7 +310,7 @@ export function Advanced({ share }) {
         <p className="text-sm"><b>{list.length}</b> chapter{list.length === 1 ? "" : "s"}{total > 0 && <span className="text-ink-3"> · {strict} match all required · {mode === "one" ? " · each has at least one Additional filter" : ` · +${viaExpand} via Expand`}</span>}</p>
       </div>
       <div className="mt-4 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]"><div className="min-w-0">
-        {list.length === 0 ? <p className="rounded-xl border border-dashed border-line p-8 text-center text-ink-2">No chapter fits all of this. Move a Required filter to Expand, or remove an Exclude.</p>
+        {list.length === 0 ? <p className={EMPTY}>No chapter fits all of this. Move a Required filter to Expand, or remove an Exclude.</p>
           : <>{total > 0 && <ResultIssues rows={list} />}<div className="mb-4 flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm">Sort by <select value={sort} onChange={(e) => setSort(e.target.value)} className="min-h-10 rounded-md border border-line bg-surface px-2 text-base">{Object.entries(SORTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
         <label className="flex items-center gap-2 text-sm">Q&amp;A <select value={qa} onChange={(e) => setQa(e.target.value)} className="min-h-10 rounded-md border border-line bg-surface px-2 text-base"><option value="off">Hidden</option><option value="q">Questions</option><option value="qa">Questions &amp; answers</option></select></label>

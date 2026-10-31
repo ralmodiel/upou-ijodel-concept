@@ -159,8 +159,8 @@ const lev = (a, b) => {
 let vocab;
 export function didYouMean(q) {
   if (!vocab) {
-    vocab = new Map();
-    S.articles.forEach((a) => tok(a.title + " " + a.subjects.join(" ") + " " + a.abstract).forEach((w) => vocab.set(w, (vocab.get(w) || 0) + 1)));
+    vocab = new Map(); // authors too: no hint turning a real name ("marie") into a word
+    S.articles.forEach((a) => tok(a.title + " " + a.subjects.join(" ") + " " + a.abstract + " " + a.authors.join(" ")).forEach((w) => vocab.set(w, (vocab.get(w) || 0) + 1)));
   }
   let changed = false;
   const out = tok(q).slice(0, 12).map((w) => {

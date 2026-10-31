@@ -456,6 +456,23 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
   const back = p.url() === h0 && await au.isChecked() === c0;
   await p.keyboard.press("Control+Shift+z"); await wait(400); await p.keyboard.press("Control+Shift+z"); await wait(600);
   ok("R111 maps: Ctrl+Z twice restores the earlier seed and options, Ctrl+Shift+Z returns", back && p.url().endsWith("/maps/pub/3") && await au.isChecked() !== c0, `(${h0} ${p.url()})`); }
+{ await p.goto(U + "/maps/pub/295"); await p.waitForSelector("svg g[data-node]"); await wait(400); // R194
+  // the last chapter node: never the seed (drawn first), and chapters show whatever the remembered map options are
+  const node = p.locator('svg g[data-node][tabindex][aria-label^="chapter: "]').last(); await node.focus(); await p.keyboard.press("Enter"); await wait(150); const h0 = p.url(); await p.keyboard.press("Enter"); await wait(400);
+  ok("R194 maps: Enter on the selected chapter node explores from it", h0.endsWith("/maps/pub/295") && /\/maps\/pub\/\d+$/.test(p.url()) && p.url() !== h0, p.url()); }
+{ await p.goto(U + "/"); await p.waitForSelector("text=Latest issues"); // R196
+  await p.evaluate(() => { const o = Worker.prototype.postMessage; window.__dym = 0; Worker.prototype.postMessage = function (m, ...r) { if (m?.op === "didYouMean") window.__dym++; return o.call(this, m, ...r); }; });
+  const box = p.getByPlaceholder("Search titles, tags, summaries, topics…"); await box.click(); await box.pressSequentially("onlne learnin", { delay: 30 }); await wait(500);
+  const nd = await p.evaluate(() => window.__dym); ok("R196 search box: typing 12+ characters sends at most 3 did-you-mean requests", nd >= 1 && nd <= 3, `(${nd})`); }
+{ await p.goto(U + "/maps/pub/295"); await p.waitForSelector("svg g[data-node]"); await p.getByRole("button", { name: "3D", exact: true }).click(); await p.waitForSelector("canvas", { timeout: 20000 }); await wait(1200); // R197
+  const raf = (ms) => p.evaluate((ms) => new Promise((done) => { let n = 0; const o = requestAnimationFrame; window.requestAnimationFrame = (f) => { n++; return o(f); }; setTimeout(() => { window.requestAnimationFrame = o; done(n); }, ms); }), ms);
+  const on = await raf(500); await p.evaluate(() => { document.body.style.paddingBottom = "300vh"; scrollTo(0, document.body.scrollHeight); }); await wait(400); const off = await raf(500);
+  await p.evaluate(() => { document.body.style.paddingBottom = ""; scrollTo(0, 0); }); ok("R197 maps: 3D stops rendering while scrolled out of view", on > 5 && off === 0, `(${on} -> ${off})`); }
+{ const cx = await b.newContext(); await cx.addInitScript(() => { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1"); localStorage.setItem("ijodel-consent", JSON.stringify({ v: 0, prefs: true, lists: true })); localStorage.setItem("ijodel-lists", JSON.stringify([{ id: "x", name: "Old", items: ["3"] }])); } }); // R199
+  const t = await cx.newPage(); await t.goto(U + "/"); const dlg = t.getByRole("dialog", { name: "Cookie and privacy choices" }); const shown = await dlg.waitFor({ timeout: 8000 }).then(() => true, () => false);
+  await dlg.getByRole("button", { name: "Essential only" }).click().catch(() => {}); await t.waitForTimeout(300);
+  const s = await t.evaluate(() => [JSON.parse(localStorage.getItem("ijodel-consent") || "{}").v, localStorage.getItem("ijodel-lists")]);
+  ok("R199 consent: a record from an older notice re-asks; Essential only then removes the old list", shown && s[0] === 1 && s[1] === null, JSON.stringify(s)); await cx.close(); }
 ok("no page errors (rounds 38-46)", errs.length === 0, errs.slice(0, 2).join(" | "));
 ok("no CSP violations by the end (model load included)", !csp.length, csp[0]?.slice(0, 120) ?? "");
 await b.close(); process.exit(bad ? 1 : 0);

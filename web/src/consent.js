@@ -7,14 +7,18 @@ import { useEffect, useRef, useState } from "react";
 //   model: download of the semantic-search model from Hugging Face (a third party sees the visitor's IP)
 //   counter: the journal's Flag Counter visit counter (flagcounter.me counts visitors by IP and country)
 const K = "ijodel-consent", mem = new Map(), subs = new Set();
-const read = () => { try { const v = JSON.parse(localStorage.getItem(K)); return v && typeof v === "object" ? { prefs: !!v.prefs, lists: v.lists === undefined ? !!v.prefs : !!v.lists, model: !!v.model, counter: !!v.counter } : null; } catch { return null; } };
+// R199: privacy notice version. Raise it when Legal.jsx's Privacy changes what is stored or sent: older records then read as
+// "not decided" and the banner asks again (their stored data stays until the new choice, which keeps or removes it as usual).
+// Records from before versioning (no v) count as version 1.
+export const NOTICE = 1;
+const read = () => { try { const v = JSON.parse(localStorage.getItem(K)); return v && typeof v === "object" && (v.v ?? 1) >= NOTICE ? { prefs: !!v.prefs, lists: v.lists === undefined ? !!v.prefs : !!v.lists, model: !!v.model, counter: !!v.counter } : null; } catch { return null; } };
 let c = read(); // null = not decided yet
 export const allow = (k) => !!c?.[k];
 const cls = (k) => (/^ijodel-lists?$/.test(k) ? "lists" : "prefs"); // which consent a stored key belongs to
 export function setConsent(v) {
   c = { prefs: !!v.prefs, lists: !!v.lists, model: !!v.model, counter: !!v.counter };
   try {
-    localStorage.setItem(K, JSON.stringify({ ...c, at: new Date().toISOString() }));
+    localStorage.setItem(K, JSON.stringify({ ...c, v: NOTICE, at: new Date().toISOString() }));
     mem.forEach((val, k) => { if (allow(cls(k))) localStorage.setItem(k, val); });
     Object.keys(localStorage).filter((k) => k.startsWith("ijodel-") && k !== K && !allow(cls(k))).forEach((k) => localStorage.removeItem(k));
   } catch { /* storage blocked: choices last for this visit only */ }

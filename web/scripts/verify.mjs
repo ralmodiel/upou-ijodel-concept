@@ -31,5 +31,7 @@ check(ld > 0 && !ldBad, `JSON-LD blocks parse (${ld} found, ${ldBad} bad)`);
 check(!brand && !assets.some((f) => fs.readFileSync(f, "latin1").includes("ojs_brand")), "no ojs_brand references in dist");
 for (const src of fs.readdirSync(path.join(web, "src"))) for (const [, u] of fs.readFileSync(path.join(web, "src", src), "utf8").matchAll(/asset\("([^"]+)"\)/g)) if (!fs.existsSync(path.join(dist, u))) dead.push(`src/${src} -> ${u}`);
 check(!dead.length, `asset references resolve (${dead.length} dead${dead.length ? ": " + dead.slice(0, 5).join(", ") : ""})`);
+const leak = fs.readdirSync(dist, { recursive: true }).filter((f) => /\.(map|pdf)$|(^|\/)\.env|^data\//.test(f)); // R198: no source maps, PDFs, .env or data/ in dist
+check(!leak.length, `no source maps, .pdf, .env or data/ in dist (${leak.length}${leak.length ? ": " + leak.slice(0, 5).join(", ") : ""})`);
 if (process.argv.includes("--all")) for (const c of ["node scripts/a11y.mjs", "node scripts/phone.mjs", "timeout 118 node e2e/ui.mjs"]) check(run(c), c);
 fs.writeSync(1, `${n} checks, ${bad} FAIL\n`); process.exit(bad ? 1 : 0);

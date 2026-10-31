@@ -6,11 +6,11 @@ import { homedir } from "os";
 const axeSrc = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
 const b = await chromium.launch({ executablePath: `${homedir()}/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`, args: ["--no-sandbox", "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 const rules = {}; let n = 0, pages = 0;
-for (const scheme of ["light"]) {
-const ctx = await b.newContext({ viewport: { width: 1300, height: 900 }, colorScheme: scheme });
+for (const [scheme, width] of [["light", 1300], ["light", 390]]) { // R192: the home hero over the cover gradient at phone width too
+const ctx = await b.newContext({ viewport: { width, height: 900 }, colorScheme: scheme });
 await ctx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); } catch {} });
 const p = await ctx.newPage();
-const routes = ["/", "/search/libre", "/advanced", "/read/3", "/maps", "/privacy"];
+const routes = width < 1300 ? ["/"] : ["/", "/search/libre", "/advanced", "/read/3", "/maps", "/privacy"];
 for (const r of routes) { pages++;
   await p.goto("http://localhost:4173/#" + r); await p.waitForTimeout(1500);
   const v = (await p.evaluate(async (src) => { (0, eval)(src); return (await axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa", "best-practice"] }, rules: { "color-contrast": { enabled: true } }, resultTypes: ["violations"] })).violations.map((x) => [x.id, x.nodes.length, x.nodes[0].target.join(" ")]); }, axeSrc));

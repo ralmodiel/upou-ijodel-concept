@@ -55,6 +55,8 @@ const store = (k, v) => { try { if (v === undefined) { const a = JSON.parse(pref
 const recents = () => store("ijodel-recent").filter((x) => typeof x === "string" && x.length < 200);
 const remember = (q) => store("ijodel-recent", [q, ...recents().filter((x) => x !== q)].slice(0, 6));
 const saved = () => store("ijodel-saved").filter((x) => typeof x === "string" && x.length < 200);
+// R193: one dashed card for every empty state (no results, empty list, nothing to map, no chapter fits); tokens.mjs checks the four use it
+export const EMPTY = "rounded-xl border border-dashed border-line p-8 text-center text-ink-2";
 export const clip = (t, n) => (t.length > n ? t.slice(0, n).replace(/\s\S*$/, "") + "…" : t);
 
 // View lists (playlists): named collections of chapters, kept in localStorage, shared across components.
@@ -164,7 +166,7 @@ function MyList({ lid }) {
         <span role="status" className="text-xs text-ink-2">{msg}</span></div>
       <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div>
-      {items.length === 0 ? <p className="rounded-xl border border-dashed border-line p-8 text-center text-ink-3">This list is empty. Press <b>+</b> on any chapter to add it, then read them one by one.</p> :
+      {items.length === 0 ? <p className={EMPTY}>This list is empty. Press <b>+</b> on any chapter to add it, then read them one by one.</p> :
         <ul className="space-y-4">{items.map((a, i) => <Card key={a.id} a={a} extra={<div className="mt-2 flex gap-2 text-sm"><button type="button" disabled={!i} onClick={() => move(a.id, -1)} aria-label={`Move up: ${a.title}`} className="min-h-10 rounded-full border border-line px-3 disabled:opacity-40">↑ Up</button><button type="button" disabled={i === items.length - 1} onClick={() => move(a.id, 1)} aria-label={`Move down: ${a.title}`} className="min-h-10 rounded-full border border-line px-3 disabled:opacity-40">↓ Down</button></div>} />)}</ul>}</div>
         <Recommended items={items} />
       </div>
@@ -361,7 +363,8 @@ function suggestions(q, fix) {
 function SearchBox({ value, onChange, placeholder, className = "", btn = "bg-action-fill hover:bg-action-2-fill" }) {
   const [open, setOpen] = useState(false), [cur, setCur] = useState(-1), [fix, setFix] = useState(null), m = useModel();
   // "did you mean" runs in the search worker; a late answer for an older value is dropped
-  useEffect(() => { let on = true; if (open && value.trim().length >= 2) didYouMeanAsync(value).then((f) => on && setFix(f)).catch(() => {}); else setFix(null); return () => { on = false; }; }, [value, open]);
+  // R196: one worker request per typing pause (120 ms), not one per keystroke
+  useEffect(() => { let on = true; const id = open && value.trim().length >= 2 ? setTimeout(() => didYouMeanAsync(value).then((f) => on && setFix(f)).catch(() => {}), 120) : setFix(null); return () => { on = false; clearTimeout(id); }; }, [value, open]);
   const list = open ? suggestions(value, fix) : [];
   const go = (to, q) => { setOpen(false); if (q) remember(q); location.hash = to; };
   const submit = (e) => { e.preventDefault(); const it = list[cur]; if (it) go(it.to, it.kind === "search" || it.kind === "recent" || it.kind === "did you mean" ? it.label.replace(/^Search all for “|”$/g, "") : null); else if (value.trim()) go("/search/" + encodeURIComponent(value.trim()), value.trim()); };
@@ -648,7 +651,7 @@ function Search({ q0 }) {
           {!q0 && <p className="mb-4 flex flex-wrap items-center gap-2 text-sm"><span className="text-ink-3">Popular tags:</span>{Object.entries(sc).sort((x, y) => y[1] - x[1]).slice(0, 8).map(([s]) => <Link key={s} to={tagTo(s)} className="rounded-full bg-navy-soft px-3 py-0.5 text-navy hover:underline">{s}</Link>)}</p>}
           {err ? <div role="alert" className="rounded-xl border border-dashed border-line p-10 text-center text-ink-2"><p>The search data could not be loaded. Check your connection and try again.</p><button type="button" onClick={() => run(q0 || "")} className="mt-2 min-h-11 font-medium text-link hover:underline">Retry</button></div>
             : base === null ? <p role="status" className="rounded-xl border border-dashed border-line p-10 text-center text-ink-3">Searching…</p>
-            : list.length === 0 ? <div className="rounded-xl border border-dashed border-line p-10 text-center text-ink-2"><p>Nothing found{q ? ` for “${q}”` : ""}. Try fewer or different words, or widen the search:</p>
+            : list.length === 0 ? <div className={EMPTY}><p>Nothing found{q ? ` for “${q}”` : ""}. Try fewer or different words, or widen the search:</p>
               <p className="mt-2 flex flex-wrap justify-center gap-x-4">{scope.length < SCOPES.flatMap((s) => s[0].split(",")).length && <button type="button" onClick={() => setScope(SCOPES.flatMap((s) => s[0].split(",")))} className="min-h-11 font-medium text-link hover:underline">Search in all fields</button>}
               {active.length > 0 && <button type="button" onClick={() => { const sc = scope; reset(); setScope(sc); }} className="min-h-11 font-medium text-link hover:underline">Clear {active.length} filter{active.length > 1 ? "s" : ""}</button>}
               {pq.ops.length > 0 && <Link to={"/search/" + encodeURIComponent(pq.text)} className="inline-flex min-h-11 items-center font-medium text-link hover:underline">Drop the query operators</Link>}

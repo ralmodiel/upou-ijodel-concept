@@ -9,6 +9,9 @@ await t("explicit lists false", '{"prefs":true,"lists":false}', [false, true, fa
 await t("malformed JSON", "{oops", null);
 await t("null storage", null, null);
 await t("non-object", "5", null);
+// R199: notice version (NOTICE = 1): an older record is undecided again (banner shows), current and pre-versioning ones still count
+await t("outdated {v:0} -> undecided", '{"v":0,"prefs":true,"lists":true}', null);
+await t("current {v:1}", '{"v":1,"prefs":true,"model":true}', [true, true, true, false]);
 // Withdrawal (round 159): every audited key (consent-audit.mjs LISTS/PREF/NEC/SESSION) plus an unknown ijodel-* key is stored; saving
 // "all off" keeps only the choice, forgetConsent() leaves no ijodel-* key in either storage and nothing in memory, foreign keys stay.
 const box = () => Object.defineProperties({}, { getItem: { value(k) { return Object.hasOwn(this, k) ? this[k] : null; } }, setItem: { value(k, v) { this[k] = String(v); } }, removeItem: { value(k) { delete this[k]; } } });
@@ -27,5 +30,11 @@ const w = async (name, fn) => { n++; try { await fn(); console.log("ok  ", name)
   await w("forgetConsent: no ijodel-* key in sessionStorage", () => assert.deepEqual(left(sessionStorage), []));
   await w("forgetConsent: undecided, allow() false, memory empty", () => { assert.deepEqual(["lists", "prefs", "model", "counter"].map(m.allow), [false, false, false, false]); assert.deepEqual(keys.map((k) => m.pref.get(k)).filter(Boolean), []); });
   await w("forgetConsent: other sites' keys untouched", () => assert.equal(localStorage.getItem("other-site"), "x"));
+}
+// R199 re-ask: an outdated record's stored data is not used while undecided, kept when the visitor allows it again, removed when not
+for (const [name, choice, want] of [["re-ask, allow lists again: old list kept", { lists: true }, "L"], ["re-ask, essential only: old list removed", {}, null]]) {
+  globalThis.localStorage = box(); localStorage.setItem("ijodel-consent", '{"v":0,"prefs":true,"lists":true}'); localStorage.setItem("ijodel-lists", "L");
+  const m = await import(`${f}?${i++}`);
+  await w(name, () => { assert.equal(m.pref.get("ijodel-lists"), null); m.setConsent(choice); assert.equal(localStorage.getItem("ijodel-lists"), want); assert.equal(JSON.parse(localStorage.getItem("ijodel-consent")).v, m.NOTICE); });
 }
 console.log(`${n} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);

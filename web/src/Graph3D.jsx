@@ -102,11 +102,13 @@ const Graph3D = forwardRef(function Graph3D({ nodes: all, links: allLinks, seed,
       .linkDirectionalParticles(0).onNodeClick((n) => st.current.onSelect(n.id)).onBackgroundClick(() => st.current.onSelect(null)).onNodeHover((n) => st.current.onHover(n ? n.id : null));
     f.scene().add(new THREE.AmbientLight(0xffffff, 1.6));
     fg.current = f;
-    const vis = () => (document.hidden ? f.pauseAnimation() : f.resumeAnimation()); document.addEventListener("visibilitychange", vis);
+    // paused while the tab is hidden or (R197) the map is scrolled out of view
+    let seen = true; const vis = () => (document.hidden || !seen ? f.pauseAnimation() : f.resumeAnimation()); document.addEventListener("visibilitychange", vis);
+    const io = new IntersectionObserver(([e]) => { seen = e.isIntersecting; vis(); }); io.observe(box.current);
     // GPU reset or driver crash: keep the canvas, wait for the browser to restore the context, then rebuild the graph
     const cv = f.renderer().domElement, lost = (e) => { e.preventDefault(); f.pauseAnimation(); setLost(true); }, back = () => { setLost(false); setGen((n) => n + 1); };
     cv.addEventListener("webglcontextlost", lost); cv.addEventListener("webglcontextrestored", back);
-    return () => { cv.removeEventListener("webglcontextlost", lost); cv.removeEventListener("webglcontextrestored", back); document.removeEventListener("visibilitychange", vis); f._destructor?.(); box.current && (box.current.innerHTML = ""); fg.current = null; };
+    return () => { io.disconnect(); cv.removeEventListener("webglcontextlost", lost); cv.removeEventListener("webglcontextrestored", back); document.removeEventListener("visibilitychange", vis); f._destructor?.(); box.current && (box.current.innerHTML = ""); fg.current = null; };
   }, [gen]);
   useEffect(() => {
     const f = fg.current, el = box.current; if (!f) return;

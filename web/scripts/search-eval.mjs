@@ -46,6 +46,8 @@ const SET = [
 ];
 // round 120: one-transposition typos (the did-you-mean path); expected article in the top 3, gate TOP3 >= 0.9
 const TYPO = [["tradtiional learning","77"],["nomral learning","284"],["appyling learning","67"],["consrtaints learning","74"],["augmneting learning","16"],["engaegment student","291"],["innoavtions learning","339"],["invesitgation online","227"],["perecived students","257"],["altenrative teaching","33"],["reaidness perception","9"],["facbeook developing","39"],["conojint study","108"],["soical presence","294"],["instrcutional higher","297"],["medaited technology","90"],["assoication nursing","41"],["hisotrya based","8"],["perecived classroom","19"],["interpertation learning","69"],["tranistions learning","254"],["chtagpt teaching","250"],["extneding open","231"],["evertyhing research","322"],["fleixble learning","300"]];
+// round 191: short acronym and hyphen queries (tok keeps 2+ letter tokens: "AI", "e-learning" -> "learning"); expected in the top 5, gate >= 0.9
+const ACR = [["AI micro-credentials","330"],["LMS Google Classroom","293"],["e-Ready Makati","98"],["MOOC graphic design","261"],["MOOCs social media","60"],["e-learning self-efficacy","40"],["e-learning ticketing","34"],["e-learning English listening","25"],["ODeL history UPOU","10"],["ODeL co-creation","52"],["ODL reflective practices","315"],["COVID-19 welfare","89"],["COVID-19 quality of instruction","243"],["COVID-19 Tanzania","288"],["K-12 teaching presence","33"],["OER website","59"],["STEM OER","46"],["VRTDs UPOU","17"],["VR maritime","58"],["AR nursing","24"]];
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? +process.argv[i + 1] : d; };
 async function run(label) {
   let h1 = 0, h5 = 0; const miss = [];
@@ -58,9 +60,11 @@ async function run(label) {
   let h3 = 0;
   for (const [q, id] of TYPO) { let r = await E.searchArticles(q, { k: 3 }); if (!r.length) { const f = E.didYouMean(q); if (f) r = await E.searchArticles(f, { k: 3 }); } if (r.some((a) => a.id === id)) h3++; else miss.push(`${label}: typo ${q} -> want ${id}`); }
   for (const w of ["ann", "lee"]) { const a = (await E.searchArticles(w, { k: 1 }))[0]; if (!a || !(a.authors.join(" ").toLowerCase().match(/[a-z]+/g) || []).includes(w)) { miss.push(`${label}: author ${w} not exact-name first`); h3 = 0; } } // round 121
-  console.log(`${label} transposition top3 ${(h3 / TYPO.length).toFixed(3)}`);
+  let ha = 0;
+  for (const [q, id] of ACR) { if ((await E.searchArticles(q, { k: 5 })).some((a) => a.id === id)) ha++; else miss.push(`${label}: acronym ${q} -> want ${id}`); }
+  console.log(`${label} transposition top3 ${(h3 / TYPO.length).toFixed(3)}, acronym top5 ${(ha / ACR.length).toFixed(3)}`);
   miss.slice(0, 8).forEach((m) => console.log("miss " + m));
-  return [h1 / SET.length, h5 / SET.length, h3 / TYPO.length >= 0.9];
+  return [h1 / SET.length, h5 / SET.length, h3 / TYPO.length >= 0.9 && ha / ACR.length >= 0.9];
 }
 // BM25-only floor (before the model loads), then hybrid with the vector model (what the UI uses once ready)
 const [b1, b5, t1] = await run("bm25"); console.log(`${SET.length} queries BM25 only: hit@1 ${b1.toFixed(3)}, hit@5 ${b5.toFixed(3)}`);
