@@ -35,7 +35,8 @@ for (const seed of ['{"kind":"tag","id":"zzz"}', '{"kind":"author","id":"x"}', '
 }
 // R140: unknown text sizes keep the reader at the default zoom (same as no key)
 { const zoom = async (v) => { const c = await b.newContext(); await c.addInitScript(([v]) => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true })); if (v != null) localStorage.setItem("ijodel-text", v); } catch {} }, [v]); const p = await c.newPage(); await p.goto(U + "#/read/3"); await p.waitForSelector("article h1"); const z = await p.evaluate(() => document.querySelector("article div[style*=zoom]")?.style.zoom); await c.close(); return z; };
-  const d = await zoom(null); for (const v of BAD.slice(0, 9)) { const z = await zoom(v); ok("R140 ijodel-text " + v.slice(0, 20) + " -> default zoom", z === d || v === "1", z + " vs " + d); } }
+  const d = await zoom(null); for (const v of BAD.slice(0, 9)) { const z = await zoom(v); ok("R140 ijodel-text " + v.slice(0, 20) + " -> default zoom", z === d || v === "1", z + " vs " + d); }
+  for (const [v, w] of [["-5", d], ["99", "1.3"], ["x", d], ["1.5", "1.3"]]) { const z = await zoom(v); ok("R271 ijodel-text " + v + " -> " + w, z === w, String(z)); } } // always a SIZES step
 // R228: 10,000 stored recent/saved searches render at most 10 suggestion rows and 10 + 30 pills (1 MB strings: see BAD, big)
 { const c = await b.newContext(), errs = []; await c.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true })); for (const k of ["recent", "saved"]) localStorage.setItem("ijodel-" + k, JSON.stringify(Array.from({ length: 10000 }, (_, i) => k + i))); } catch {} });
   const p = await c.newPage(); p.on("pageerror", (e) => errs.push(e.message)); await p.goto(U + "#/search"); await p.waitForSelector("main h1"); await p.getByLabel("Search chapters").first().focus(); await p.waitForTimeout(400);
@@ -46,4 +47,10 @@ for (const seed of ['{"kind":"tag","id":"zzz"}', '{"kind":"author","id":"x"}', '
   const t0 = Date.now(); await p.goto(U + "#/search/" + big + "%00%1f"); await p.waitForSelector("[role=status] b", { timeout: 10000 }); const ms = Date.now() - t0;
   const [len, ctl, posted] = await p.evaluate(() => [document.title.length, /[\u0000-\u001f]/.test(document.title), window.__posted]);
   ok("R128 /search/<200k> renders under 300 ms after load", ms < 300, ms + " ms"); ok("R128 query sent to the worker <= 300 chars", posted > 0 && posted <= 300, posted); ok("R129 title <= 120 chars, no control chars", len <= 120 && !ctl, len); }
+// R279: storage full (every setItem throws QuotaExceededError): changing the text size, searching and browsing still work, no pageerror
+{ const c = await b.newContext(); await c.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, lists: true })); } catch {} Storage.prototype.setItem = function () { throw new DOMException("full", "QuotaExceededError"); }; });
+  const p = await c.newPage(), errs = []; p.on("pageerror", (e) => errs.push(e.message)); await p.goto(U + "#/read/3"); await p.waitForSelector("article h1");
+  await p.getByRole("button", { name: "Larger text" }).click(); await p.waitForTimeout(200); const z = await p.evaluate(() => document.querySelector("article div[style*=zoom]")?.style.zoom);
+  await p.goto(U + "#/search/distance"); await p.waitForSelector("[role=status] b", { timeout: 10000 }); await p.waitForTimeout(300);
+  ok("R279 quota exhausted: text size still changes, search works, no pageerror", z === "1.15" && !errs.length, `zoom=${z} ${errs[0] || ""}`); await c.close(); }
 await b.close(); console.log(`${n} cases, ${bad} FAIL`); process.exit(bad ? 1 : 0);

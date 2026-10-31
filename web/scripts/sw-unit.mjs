@@ -5,10 +5,11 @@ const src = fs.readFileSync(new URL("./sw.tpl.js", import.meta.url), "utf8").rep
 const run = async (req, res) => {
   const puts = [], L = {}, store = { put: async (q) => puts.push(q.url), addAll: async () => {} };
   const ctx = { self: { addEventListener: (t, f) => (L[t] = f), clients: { claim() {} }, skipWaiting() {} }, location: { origin: "https://x.test" }, URL, Response,
-    caches: { open: async () => store, has: async () => !req.gone, keys: async () => [], delete: async () => true, match: async () => undefined }, fetch: async () => res };
+    caches: { open: async () => store, has: async () => !req.gone, keys: async () => [], delete: async () => true, match: async (_q, o) => (req.cached && o?.cacheName === "ijodel-offline-t" ? res : undefined) }, fetch: async () => { fetches++; return res; } };
+  let fetches = 0;
   vm.runInNewContext(src, ctx);
   let handled = false; await new Promise((ok) => { L.fetch({ request: req, respondWith: (p) => { handled = true; Promise.resolve(p).then(ok, ok); } }); setTimeout(ok, 20); });
-  await new Promise((r) => setTimeout(r, 5)); return { handled, puts };
+  await new Promise((r) => setTimeout(r, 5)); return { handled, puts, fetches };
 };
 const rq = (url, method = "GET", mode = "cors") => ({ url, method, mode });
 const rs = (o = {}) => ({ ok: true, type: "basic", redirected: false, clone() { return this; }, ...o });
@@ -23,6 +24,10 @@ const cases = [
   ["redirected not cached", await run(rq(O + "a.json"), rs({ redirected: true })), true, 0],
   ["opaque not cached", await run(rq(O + "a.json"), rs({ type: "opaque", ok: false })), true, 0],
   ["error status not cached", await run(rq(O + "a.json"), rs({ ok: false })), true, 0],
+  ["R278 cross-origin no-cors ignored", await run(rq("https://evil.test/index/a.json", "GET", "no-cors"), rs()), false, 0],
+  ["R276 index/*.json cached: served from cache, no network call", await run({ ...rq(O + "index/articles.json"), cached: true }, rs()), true, 0, 0],
+  ["R276 index/*.json first visit: network once, then cached", await run(rq(O + "index/articles.json"), rs()), true, 1, 1],
+  ["R276 index/pass/x.json stays network first", await run({ ...rq(O + "index/pass/x.json"), cached: true }, rs()), true, 1, 1],
 ];
-let bad = 0; for (const [n, r, h, p] of cases) if (r.handled !== h || r.puts.length !== p) { bad++; console.log(`FAIL ${n}: handled ${r.handled} puts ${r.puts.length}, want ${h} ${p}`); }
+let bad = 0; for (const [n, r, h, p, f] of cases) if (r.handled !== h || r.puts.length !== p || (f != null && r.fetches !== f)) { bad++; console.log(`FAIL ${n}: handled ${r.handled} puts ${r.puts.length}, want ${h} ${p}`); }
 console.log(`${cases.length} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);

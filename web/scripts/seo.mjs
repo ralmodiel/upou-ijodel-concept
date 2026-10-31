@@ -1,6 +1,7 @@
 // Build-time SEO: static read pages, sitemap, robots, 404 (hash routing is invisible to crawlers). SITE_URL env sets absolute URLs.
 import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync } from "fs";
 import { join } from "path";
+import { createHash } from "crypto";
 export const SITE = (process.env.SITE_URL || "https://ralmodiel.github.io/upou-ijodel-concept").replace(/\/+$/, ""); // default is the current POC Pages URL: set SITE_URL for the UPOU deployment
 const NAME = "International Journal on Open and Distance e-Learning";
 const DESC = "IJODeL: open-access scholarly articles on open and distance e-learning. Browse, search and read 116 chapters by issue, topic and author.";
@@ -39,7 +40,8 @@ export function seoPlugin() {
       // round 83: offline service worker, versioned by the entry chunk name; registered only under the "prefs" consent (src/sw-reg.js)
       const assets = readdirSync(join(dist, "assets")).filter((f) => /\.(js|css)$/.test(f) && !/Graph3D|transformers/.test(f) || /(lato-latin-(400|700)|merriweather-latin-(300|400))-normal-.*\.woff2$/.test(f));
       const pre = ["./", "index/articles.json", "index/chunks.json", "index/issues.json", "index/texts.json", "img/logo.webp", ...assets.map((f) => "assets/" + f)];
-      const ver = (readFileSync(join(dist, "index.html"), "utf8").match(/assets\/index-([^".]+)\.js/) || [, Date.now()])[1];
+      const dh = createHash("sha1"); for (const f of pre.filter((p) => /^index\/.*\.json$/.test(p))) dh.update(readFileSync(join(dist, f))); // R276: data changes alone also change the cache name
+      const ver = (readFileSync(join(dist, "index.html"), "utf8").match(/assets\/index-([^".]+)\.js/) || [, Date.now()])[1] + "-" + dh.digest("hex").slice(0, 8);
       writeFileSync(join(dist, "sw.js"), readFileSync(join(import.meta.dirname, "sw.tpl.js"), "utf8").replace("__VER__", ver).replace("[/*PRE*/]", JSON.stringify(pre)));
       // external redirect file: inline script would need a CSP hash
       writeFileSync(join(dist, "r.js"), `var s=document.currentScript;if(/^\\d+$/.test(s.dataset.id))location.replace(s.src.replace(/r\\.js$/,"")+"#/read/"+s.dataset.id);\n`);

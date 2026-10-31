@@ -13,5 +13,7 @@ self.addEventListener("fetch", (e) => {
   if (q.method !== "GET" || u.origin !== location.origin || /\.(bin|wasm)$/.test(u.pathname) || u.pathname.endsWith("/sw.js")) return; // vectors/model stay under the model consent
   if (q.mode === "navigate") return e.respondWith(fetch(q).then((r) => put(q, r)).catch(() => caches.match(q, { ignoreSearch: true }).then((r) => r || caches.match("./"))));
   if (u.pathname.includes("/assets/")) return e.respondWith(caches.match(q).then((r) => r || fetch(q).then((r) => put(q, r)))); // hashed names: immutable
+  // R276: top-level index/*.json is cache first from this version's cache (the name carries a hash of the index files, so a deploy never reads old data)
+  if (/\/index\/[^/]+\.json$/.test(u.pathname)) return e.respondWith(caches.match(q, { cacheName: V }).then((r) => r || fetch(q).then((r) => put(q, r))));
   e.respondWith(fetch(q).then((r) => put(q, r)).catch(() => caches.match(q).then((r) => r || Response.error())));
 });

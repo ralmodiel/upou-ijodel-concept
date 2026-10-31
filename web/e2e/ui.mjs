@@ -589,6 +589,16 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
   console.log(`TT report-only: ${tt.length} events; sinks: ${sinks.join(" ; ")}`);
   ok("R238 Trusted Types violations stay within the recorded baseline and documented sinks", tt.length <= 2 && sinks.every((s) => ["ServiceWorkerContainer register", "Worker constructor"].includes(s)) /* baseline 2026-10-31: SW register + embedding Worker URL */, `${tt.length}`);
   ok("R239 no non-Trusted-Types CSP violation during the run", other.length === 0, other.slice(0, 2).map((v) => v.join(" ")).join(" | ")); }
+{ const cx = await b.newContext({ viewport: { width: 1400, height: 900 } }), o = await cx.newPage(); await cx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true })); } catch {} }); // R270/R274/R275, fresh context
+  await o.goto(U + "/maps/pub/zzz"); await o.waitForSelector("[role=status] a"); const href = await o.locator("[role=status] a").getAttribute("href");
+  await o.locator("[role=status] a").click(); await o.waitForSelector("svg [data-node]");
+  ok("R270 /maps/pub/zzz: status message with a link to a valid seed that draws a map", /^#\/maps\/pub\//.test(href) && (await o.locator("svg [data-node]").count()) > 3 && (await o.getByLabel("Seed", { exact: true }).inputValue()).length > 0, href);
+  await o.goto(U + "/search/distance"); await o.waitForSelector("#count b"); await o.getByLabel("Sort").selectOption("newest"); await o.waitForTimeout(300);
+  ok("R274 choosing Newest puts \"sorted by newest first\" in the result-count status", /sorted by newest first/.test(await o.locator("#count").textContent()));
+  await o.goto(U + "/read/3"); await o.waitForSelector("#r-related"); const cur = (n) => o.getByRole("navigation", { name: "On this page" }).getByRole("button", { name: n });
+  await o.evaluate(() => document.getElementById("r-related").scrollIntoView({ block: "start" })); await o.waitForTimeout(400);
+  const rel = await cur("Related").getAttribute("aria-current"), abs = await cur("Abstract").getAttribute("aria-current");
+  ok("R275 scrolled to Related: that link has aria-current=location, Abstract does not", rel === "location" && abs === null, `${rel} ${abs}`); await cx.close(); }
 ok("no page errors (rounds 38-46)", errs.length === 0, errs.slice(0, 2).join(" | "));
 ok("no CSP violations by the end (model load included)", !csp.length, csp[0]?.slice(0, 120) ?? "");
 await b.close(); process.exit(bad ? 1 : 0);

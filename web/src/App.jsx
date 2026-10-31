@@ -735,7 +735,8 @@ function Overview({ a, mode, setMode }) {
 const SIZES = [1, 1.15, 1.3];
 function ReaderBar({ a, faq, z, setZ }) {
   const [pct, setPct] = useState(0), [msg, setMsg] = useNote();
-  useEffect(() => { const f = () => { const h = document.documentElement.scrollHeight - innerHeight; setPct(h > 0 ? Math.round(Math.min(1, scrollY / h) * 100) : 100); }; f(); addEventListener("scroll", f, { passive: true }); addEventListener("resize", f); return () => { removeEventListener("scroll", f); removeEventListener("resize", f); }; }, [a.id]);
+  const [cur, setCur] = useState("");
+  useEffect(() => { const f = () => { setCur(["r-overview", "r-faq", "r-related"].filter((id) => document.getElementById(id)?.getBoundingClientRect().top <= innerHeight / 3).pop() || ""); const h = document.documentElement.scrollHeight - innerHeight; setPct(h > 0 ? Math.round(Math.min(1, scrollY / h) * 100) : 100); }; f(); addEventListener("scroll", f, { passive: true }); addEventListener("resize", f); return () => { removeEventListener("scroll", f); removeEventListener("resize", f); }; }, [a.id]);
   const its = window.__S.articles.filter((b) => issueKey(b) === issueKey(a)), i = its.indexOf(a), prev = its[i - 1], next = its[i + 1];
   const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   const share = async () => { const url = location.href; try { if (navigator.share && matchMedia("(pointer: coarse)").matches) { await navigator.share({ title: a.title, url }); return; } await navigator.clipboard.writeText(url); setMsg("Link copied"); } catch (e) { if (e?.name !== "AbortError") setMsg("Copy the address bar to share"); } };
@@ -743,9 +744,9 @@ function ReaderBar({ a, faq, z, setZ }) {
   return (
     <nav aria-label="On this page" className="sticky top-0 z-20 -mx-4 mt-3 border-b border-line bg-paper/95 px-4 py-1 backdrop-blur print:hidden">
       <div className="flex flex-wrap items-center gap-x-1">
-        <button type="button" className={btn} onClick={() => jump("r-overview")}>Abstract</button>
-        {faq && <button type="button" className={btn} onClick={() => jump("r-faq")}>Questions</button>}
-        <button type="button" className={btn} onClick={() => jump("r-related")}>Related</button>
+        <button type="button" className={btn} aria-current={cur === "r-overview" ? "location" : undefined} onClick={() => jump("r-overview")}>Abstract</button>
+        {faq && <button type="button" className={btn} aria-current={cur === "r-faq" ? "location" : undefined} onClick={() => jump("r-faq")}>Questions</button>}
+        <button type="button" className={btn} aria-current={cur === "r-related" ? "location" : undefined} onClick={() => jump("r-related")}>Related</button>
         <span className="ml-auto flex flex-wrap items-center gap-x-1">
           {prev && <Link to={"/read/" + prev.id} title={prev.title} className={btn + " inline-flex items-center"}>‹ Previous in issue</Link>}
           {next && <Link to={"/read/" + next.id} title={next.title} className={btn + " inline-flex items-center"}>Next in issue ›</Link>}
@@ -774,7 +775,7 @@ function SecLink({ id, sec }) {
   return <><button type="button" onClick={() => navigator.clipboard.writeText(location.href.split("#")[0] + `#/read/${id}/s/${sec}`).then(() => say("Link to this section copied"), () => {})} aria-label="Copy link to this section" title="Copy link to this section" className="min-h-8 rounded-full px-2 text-sm font-normal text-link hover:bg-navy-soft print:hidden">{ok ? "Copied" : "#"}</button><span role="status" className="sr-only">{ok}</span></>;
 }
 function Reader({ id, at, sec }) {
-  const [z, setZ] = useState(() => Math.min(2, Math.max(0, +pref.get("ijodel-text") || 0)));
+  const [z, setZ] = useState(() => Math.min(2, Math.max(0, Math.round(+pref.get("ijodel-text")) || 0)));
   const [mode, setMode] = useState("abstract"); // lifted: the Q&A no-cite note follows the Abstract/AI-summary toggle
   const a = window.__S.byId[id], faqs = useFaqs(a?.id); // hook before the early return
   useEffect(() => { if (sec) document.getElementById("r-" + sec)?.scrollIntoView(); }, [sec, faqs.length]);
