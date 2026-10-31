@@ -56,4 +56,12 @@ for (const w of [390, 1300]) { const c6 = await b.newContext({ viewport: { width
   const f = await q.evaluate(() => { const bad = [], t = document.createTreeWalker(document.querySelector("footer"), NodeFilter.SHOW_TEXT); for (let n; (n = t.nextNode());) for (const m of n.data.matchAll(/[^\s-]+/g)) { const r = document.createRange(); r.setStart(n, m.index); r.setEnd(n, m.index + m[0].length); if (r.getClientRects().length > 1) bad.push(m[0].slice(0, 20)); }
     for (const e of document.querySelectorAll("footer *")) if (e.scrollWidth > e.clientWidth + 1 && e.clientWidth && getComputedStyle(e).display !== "inline") bad.push("<" + e.tagName.toLowerCase() + ">"); return bad; });
   if (f.length) { overlap++; console.log("FOOTER", w, f.slice(0, 6).join(" | ")); } else console.log("footer at", w, "has no broken word or overflow"); await c6.close(); }
-console.log(`${routes.length} routes, ${bad} overflow; 7 overlap probes, ${overlap} overlap`); bad += overlap; await b.close(); process.exit(bad ? 1 : 0);
+// R262: fresh visitor with the update bar up (ijodel-update event): the cookie banner covers neither the update bar (page top) nor the footer (page bottom)
+for (const w of [390, 1300]) { const c7 = await b.newContext({ viewport: { width: w, height: 844 } }), q = await c7.newPage(); await q.goto("http://localhost:4173/#/"); await q.waitForSelector("footer"); await q.waitForTimeout(800);
+  await q.evaluate(() => dispatchEvent(new CustomEvent("ijodel-update", { detail: {} }))); await q.waitForTimeout(300);
+  const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+  const o = await q.evaluate(async () => { const d = () => document.querySelector('[role=dialog][aria-label="Cookie and privacy choices"]')?.getBoundingClientRect().toJSON(), u = [...document.querySelectorAll("[role=status]")].find((e) => e.textContent.includes("new version"))?.getBoundingClientRect().toJSON();
+    const top = { d: d(), u }; for (let k = 0; k < 2; k++) { scrollTo({ top: 1e6, behavior: "instant" }); await new Promise((r) => setTimeout(r, 300)); } /* twice: rows below load and grow the page */ return { top, bot: { d: d(), f: document.querySelector("footer").getBoundingClientRect().toJSON() } }; });
+  const bad7 = !o.top.d || !o.top.u ? "missing banner/update bar" : hit(o.top.d, o.top.u) ? "banner x update bar" : hit(o.bot.d, o.bot.f) ? "banner x footer" : "";
+  if (bad7) { overlap++; console.log("UPDATE/BANNER", w, bad7); } else console.log("banner clear of update bar and footer at", w); await c7.close(); }
+console.log(`${routes.length} routes, ${bad} overflow; 9 overlap probes, ${overlap} overlap`); bad += overlap; await b.close(); process.exit(bad ? 1 : 0);

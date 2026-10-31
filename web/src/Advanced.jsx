@@ -231,7 +231,7 @@ export function Advanced({ share }) {
     (async () => { const h = chipCount(areas) ? "#/advanced/s/" + await shareCode() : "#/advanced"; if (!off && location.hash.startsWith("#/advanced") && location.hash !== h) history.replaceState(null, "", location.href.split("#")[0] + h); })();
     return () => { off = true; };
   }, [areas, mode]);
-  useEffect(() => { if (!link) return; const t = setTimeout(() => setLink(""), 5000); return () => clearTimeout(t); }, [link]);
+  useEffect(() => { if (!link) return; const t = setTimeout(() => setLink(""), link === "copied" ? 3000 : 5000); return () => clearTimeout(t); }, [link]); // R265: "copied" clears after 3 s; a link to copy by hand stays longer
   const copyShare = async () => { const url = location.href.split("#")[0] + "#/advanced/s/" + await shareCode(); try { await navigator.clipboard.writeText(url); setLink("copied"); } catch { setLink("manual:" + url); } };
   // Ctrl/Cmd+Z undoes and Ctrl+Shift+Z / Ctrl+Y redoes, except while typing in a field (the field's own undo wins)
   useEffect(() => { const f = (e) => { if (!(e.ctrlKey || e.metaKey) || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return; const k = e.key.toLowerCase(); if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); } else if (k === "y" || (k === "z" && e.shiftKey)) { e.preventDefault(); redo(); } }; addEventListener("keydown", f); return () => removeEventListener("keydown", f); }, []);
@@ -315,7 +315,7 @@ export function Advanced({ share }) {
         <label className="flex items-center gap-2 text-sm">Sort by <select value={sort} onChange={(e) => setSort(e.target.value)} className="min-h-10 rounded-md border border-line bg-surface px-2 text-base">{Object.entries(SORTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
         <label className="flex items-center gap-2 text-sm">Q&amp;A <select value={qa} onChange={(e) => setQa(e.target.value)} className="min-h-10 rounded-md border border-line bg-surface px-2 text-base"><option value="off">Hidden</option><option value="q">Questions</option><option value="qa">Questions &amp; answers</option></select></label>
         <ViewToggle view={view} setView={setView} />
-</div>{view === "grid" ? <ul className="grid-pubs">{list.slice(0, shown).map((a, i) => <Pub key={a.id} a={a} qa={qa} terms={terms} extra={total > 0 && <Why a={a} n={i + 1} sort={sort} />} />)}</ul> : <ol className="space-y-4">{list.slice(0, shown).map((a, i) => <Card key={a.id} a={a} qa={qa} terms={terms} extra={<>{total > 0 && <Why a={a} n={i + 1} sort={sort} />}<Fit a={a} areas={areas} /></>} />)}</ol>}</>}
+</div>{view === "grid" ? <ul className="grid-pubs">{list.slice(0, shown).map((a, i) => <Pub key={a.id} a={a} qa={qa} terms={terms} extra={total > 0 && <Why a={a} n={i + 1} sort={sort} />} />)}</ul> : <ol className="cv-list space-y-4">{list.slice(0, shown).map((a, i) => <Card key={a.id} a={a} qa={qa} terms={terms} extra={<>{total > 0 && <Why a={a} n={i + 1} sort={sort} />}<Fit a={a} areas={areas} /></>} />)}</ol>}</>}
         {list.length > shown && <div className="mt-6 text-center"><button type="button" onClick={() => setShown(shown + 24)} className="min-h-11 rounded-md bg-action-fill px-6 font-bold text-white hover:bg-action-2-fill">Show more ({list.length - shown} left)</button></div>}
       </div>
         <aside aria-label="Preview of suggestions" className="max-h-80 overflow-y-auto rounded-xl border border-line bg-surface p-4 lg:sticky lg:top-4 lg:max-h-[75vh]">

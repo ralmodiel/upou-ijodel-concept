@@ -158,7 +158,10 @@ const lev = (a, b) => {
   return p[b.length];
 };
 let vocab;
+export const vocabBuilt = () => !!vocab; // for scripts/engine-unit.mjs
 export function didYouMean(q) {
+  // R266: words found in the title(+authors) or abstract index are vocabulary words too, so a query of only those needs no vocabulary
+  const X = S.fieldIdx; if (!vocab && X && tok(q).slice(0, 12).every((w) => w.length < 4 || X.title.df.has(w) || X.abstract.df.has(w))) return null;
   if (!vocab) {
     vocab = new Map(); // authors too: no hint turning a real name ("marie") into a word
     S.articles.forEach((a) => tok(a.title + " " + a.subjects.join(" ") + " " + a.abstract + " " + a.authors.join(" ")).forEach((w) => vocab.set(w, (vocab.get(w) || 0) + 1)));

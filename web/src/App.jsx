@@ -45,7 +45,9 @@ export const dec = (s) => { try { return decodeURIComponent(s); } catch { return
 export const Link = ({ to, className = "", children, ...rest }) => <a href={"#" + to} className={className} {...rest}>{children}</a>;
 export const by = (a) => a.authors.join("; ");
 const asset = (p) => import.meta.env.BASE_URL + p;
-export const slug = (c) => c.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "");
+// R268: the "Original article" link opens only https on the journal's own host (same rule as scripts/seo.mjs sameAs, checked by href-allow.mjs)
+const isOrig = (u) => { try { const x = new URL(u); return x.protocol === "https:" && x.host === "ijodel.upou.edu.ph"; } catch { return false; } };
+export const slug =(c) => c.toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "");
 export const issueKey = (a) => a.issue.vol + "." + a.issue.no.replace("&", "-");
 const tagTo = (t) => "/tag/" + encodeURIComponent(t);
 // a tag held by one chapter only has nothing to browse, so it is shown as plain text, not a link
@@ -138,11 +140,21 @@ function Recommended({ items }) {
     </aside>
   );
 }
+// R265: text for a role=status line that clears 3 s after the last message (a new message restarts the timer)
+function useNote() {
+  const [m, setM] = useState(""), t = useRef(0);
+  useEffect(() => () => clearTimeout(t.current), []);
+  return [m, (x) => { clearTimeout(t.current); setM(x); t.current = setTimeout(() => setM(""), 3000); }];
+}
 function MyList({ lid }) {
   const lists = useLists(), cur = lists.find((l) => l.id === lid) || lists[0], items = cur.items.map((i) => window.__S.byId[i]).filter(Boolean);
-  const edit = (f) => saveLists(lists.map((l) => l.id === cur.id ? f(l) : l)), [msg, setMsg] = useState("");
-  const say = (m) => { setMsg(m); setTimeout(() => setMsg(""), 3000); };
+  const edit = (f) => saveLists(lists.map((l) => l.id === cur.id ? f(l) : l)), [msg, say] = useNote();
   const move = (id, d) => edit((l) => { const it = [...l.items], i = it.indexOf(id), j = i + d; if (i < 0 || j < 0 || j >= it.length) return l; [it[i], it[j]] = [it[j], it[i]]; return { ...l, items: it }; });
+  // R264: remove one chapter, with an Undo that puts it back in its old place (offered until the next removal or another list)
+  const [gone, setGone] = useState(null), undoBtn = useRef(null);
+  const remove = (a) => { setGone({ lid: cur.id, id: a.id, i: cur.items.indexOf(a.id), t: a.title }); edit((l) => ({ ...l, items: l.items.filter((x) => x !== a.id) })); };
+  const undo = () => { const g = gone; setGone(null); edit((l) => l.items.includes(g.id) ? l : { ...l, items: [...l.items.slice(0, g.i), g.id, ...l.items.slice(g.i)] }); };
+  useEffect(() => { if (gone) undoBtn.current?.focus(); }, [gone]);
   const file = (cur.name.replace(/[^\w-]+/g, "-").replace(/^-|-$/g, "") || "list").toLowerCase();
   const shareUrl = () => location.href.split("#")[0] + "#/list/share/" + encodeURIComponent(cur.name) + "/" + items.map((a) => a.id).join(",");
   const share = async () => { try { await navigator.clipboard.writeText(shareUrl()); say("Share link copied"); } catch { prompt("Copy this link", shareUrl()); } };
@@ -169,8 +181,9 @@ function MyList({ lid }) {
         <span role="status" className="text-xs text-ink-2">{msg}</span></div>
       <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div>
-      {items.length === 0 ? <p className={EMPTY}>This list is empty. Press <b>+</b> on any chapter to add it, then read them one by one.</p> :
-        <ul className="space-y-4">{items.map((a, i) => <Card key={a.id} a={a} extra={<div className="mt-2 flex gap-2 text-sm"><button type="button" disabled={!i} onClick={() => move(a.id, -1)} aria-label={`Move up: ${a.title}`} className="min-h-10 rounded-full border border-line px-3 disabled:opacity-40">↑ Up</button><button type="button" disabled={i === items.length - 1} onClick={() => move(a.id, 1)} aria-label={`Move down: ${a.title}`} className="min-h-10 rounded-full border border-line px-3 disabled:opacity-40">↓ Down</button></div>} />)}</ul>}</div>
+      {gone?.lid === cur.id && <p role="status" className="mb-4 rounded-md bg-navy-soft px-4 py-2 text-sm text-navy">Removed “{gone.t}”. <button ref={undoBtn} type="button" onClick={undo} className="ml-2 min-h-10 font-medium text-link underline">Undo remove</button></p>}
+      {items.length === 0 ? <p className={EMPTY}>This list is empty. Press <b>+</b> on any chapter to add it, then read them one by one. Find chapters in <Link to="/search" className="text-link underline">Search</Link> or the <Link to="/" className="text-link underline">Home rows</Link>.</p> :
+        <ul className="space-y-4">{items.map((a, i) => <Card key={a.id} a={a} extra={<div className="mt-2 flex gap-2 text-sm"><button type="button" disabled={!i} onClick={() => move(a.id, -1)} aria-label={`Move up: ${a.title}`} className="min-h-10 rounded-full border border-line px-3 disabled:opacity-40">↑ Up</button><button type="button" disabled={i === items.length - 1} onClick={() => move(a.id, 1)} aria-label={`Move down: ${a.title}`} className="min-h-10 rounded-full border border-line px-3 disabled:opacity-40">↓ Down</button><button type="button" onClick={() => remove(a)} aria-label={`Remove from list: ${a.title}`} className="min-h-10 rounded-full border border-line px-3">Remove</button></div>} />)}</ul>}</div>
         <Recommended items={items} />
       </div>
     </section>
@@ -336,7 +349,7 @@ function Hero({ items }) {
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-white/90">{clip(a.abstract, 300)}</p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link to={"/read/" + a.id} className="rounded-full bg-surface px-6 py-2.5 font-bold text-navy transition hover:brightness-105">Read</Link>
-            {a.url?.startsWith("https://") && <a href={a.url} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/40 bg-white/10 px-6 py-2.5 font-medium backdrop-blur hover:bg-white/20">Original article ↗</a>}
+            {isOrig(a.url) && <a href={a.url} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/40 bg-white/10 px-6 py-2.5 font-medium backdrop-blur hover:bg-white/20">Original article ↗</a>}
             <button onClick={() => setN((n + 1 + Math.floor(Math.random() * (items.length - 1))) % items.length)} className="rounded-full px-4 py-2.5 text-sm text-white/80 hover:text-white">Surprise me ↻</button>
           </div>
         </div>
@@ -721,11 +734,11 @@ function Overview({ a, mode, setMode }) {
 // Reader toolbar: sticky jump links to the page's sections, reading progress, previous/next in the issue, share.
 const SIZES = [1, 1.15, 1.3];
 function ReaderBar({ a, faq, z, setZ }) {
-  const [pct, setPct] = useState(0), [msg, setMsg] = useState("");
+  const [pct, setPct] = useState(0), [msg, setMsg] = useNote();
   useEffect(() => { const f = () => { const h = document.documentElement.scrollHeight - innerHeight; setPct(h > 0 ? Math.round(Math.min(1, scrollY / h) * 100) : 100); }; f(); addEventListener("scroll", f, { passive: true }); addEventListener("resize", f); return () => { removeEventListener("scroll", f); removeEventListener("resize", f); }; }, [a.id]);
   const its = window.__S.articles.filter((b) => issueKey(b) === issueKey(a)), i = its.indexOf(a), prev = its[i - 1], next = its[i + 1];
   const jump = (id) => document.getElementById(id)?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-  const share = async () => { const url = location.href; try { if (navigator.share && matchMedia("(pointer: coarse)").matches) { await navigator.share({ title: a.title, url }); return; } await navigator.clipboard.writeText(url); setMsg("Link copied"); } catch (e) { if (e?.name !== "AbortError") setMsg("Copy the address bar to share"); } setTimeout(() => setMsg(""), 2500); };
+  const share = async () => { const url = location.href; try { if (navigator.share && matchMedia("(pointer: coarse)").matches) { await navigator.share({ title: a.title, url }); return; } await navigator.clipboard.writeText(url); setMsg("Link copied"); } catch (e) { if (e?.name !== "AbortError") setMsg("Copy the address bar to share"); } };
   const btn = "min-h-10 rounded-full px-3 text-sm text-link hover:bg-navy-soft";
   return (
     <nav aria-label="On this page" className="sticky top-0 z-20 -mx-4 mt-3 border-b border-line bg-paper/95 px-4 py-1 backdrop-blur print:hidden">
@@ -757,8 +770,8 @@ function AtPassage({ a, at }) {
 }
 // "Copy link" beside a reader section heading: #/read/ID/s/<section> opens the chapter at that section
 function SecLink({ id, sec }) {
-  const [ok, setOk] = useState(false);
-  return <button type="button" onClick={() => navigator.clipboard.writeText(location.href.split("#")[0] + `#/read/${id}/s/${sec}`).then(() => { setOk(true); setTimeout(() => setOk(false), 2000); }, () => {})} aria-label="Copy link to this section" title="Copy link to this section" className="min-h-8 rounded-full px-2 text-sm font-normal text-link hover:bg-navy-soft print:hidden">{ok ? "Copied" : "#"}</button>;
+  const [ok, say] = useNote();
+  return <><button type="button" onClick={() => navigator.clipboard.writeText(location.href.split("#")[0] + `#/read/${id}/s/${sec}`).then(() => say("Link to this section copied"), () => {})} aria-label="Copy link to this section" title="Copy link to this section" className="min-h-8 rounded-full px-2 text-sm font-normal text-link hover:bg-navy-soft print:hidden">{ok ? "Copied" : "#"}</button><span role="status" className="sr-only">{ok}</span></>;
 }
 function Reader({ id, at, sec }) {
   const [z, setZ] = useState(() => Math.min(2, Math.max(0, +pref.get("ijodel-text") || 0)));
@@ -778,7 +791,7 @@ function Reader({ id, at, sec }) {
         <ReaderBar a={a} faq={faqs.length > 0} z={z} setZ={setZ} /><div className="max-w-[35rem]" style={{ zoom: SIZES[z] }}>
         {at && <AtPassage a={a} at={at} />}
         <div id="r-overview" className="scroll-mt-16"><Overview a={a} mode={mode} setMode={setMode} /></div>
-        <div className="mt-6 flex flex-wrap items-center gap-3 print:hidden"><AddBtn id={a.id} label className="!bg-navy-soft" /><Link to={"/maps/pub/" + a.id} className="inline-flex min-h-10 items-center rounded-full border border-line px-4 text-sm font-medium text-link hover:bg-navy-soft">Relationship map</Link>{(() => { const l = (getLists().find((x) => x.items.includes(a.id)) || { items: [] }).items, nx = l[l.indexOf(a.id) + 1]; return nx && window.__S.byId[nx] ? <Link to={"/read/" + nx} className="rounded-full border border-line px-4 py-2 text-sm font-medium text-link hover:bg-navy-soft">Next in my list →</Link> : null; })()}{a.url?.startsWith("https://") && <a href={a.url} target="_blank" rel="noopener noreferrer" className="rounded-full bg-action-fill px-5 py-2.5 text-sm font-medium text-white hover:bg-action-2-fill">Open the original article ↗</a>}</div>
+        <div className="mt-6 flex flex-wrap items-center gap-3 print:hidden"><AddBtn id={a.id} label className="!bg-navy-soft" /><Link to={"/maps/pub/" + a.id} className="inline-flex min-h-10 items-center rounded-full border border-line px-4 text-sm font-medium text-link hover:bg-navy-soft">Relationship map</Link>{(() => { const l = (getLists().find((x) => x.items.includes(a.id)) || { items: [] }).items, nx = l[l.indexOf(a.id) + 1]; return nx && window.__S.byId[nx] ? <Link to={"/read/" + nx} className="rounded-full border border-line px-4 py-2 text-sm font-medium text-link hover:bg-navy-soft">Next in my list →</Link> : null; })()}{isOrig(a.url) && <a href={a.url} target="_blank" rel="noopener noreferrer" className="rounded-full bg-action-fill px-5 py-2.5 text-sm font-medium text-white hover:bg-action-2-fill">Open the original article ↗</a>}</div>
         {faqs.length > 0 && <section id="r-faq" className="mt-10 scroll-mt-16"><h2 className="flex items-center gap-2 font-serif text-2xl">Questions this chapter answers <span className={BADGE_C} title="Generated by a language model; check the original article">AI</span><SecLink id={a.id} sec="faq" /></h2>
           {mode === "summary" && <NoCite what="AI-generated questions and answers" className="mt-3" />}
           {[["key", "Key questions"], ["topic", "By topic"]].map(([k, h]) => { const g = faqs.filter((f) => (f.kind || "key") === k); return g.length > 0 && <div key={k} data-faq-group={k}><h3 className="mt-5 text-sm font-bold uppercase tracking-wide text-ink-3">{h}</h3>

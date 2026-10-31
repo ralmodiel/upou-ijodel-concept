@@ -38,5 +38,15 @@ for (const [name, eng, opts] of ENGINES) {
   }
   await b.close();
 }
+// R263: header at 320/390/768/1300 (Chromium): same height on every route (within 8 px), nav tabs on one line, logo and nav inside the viewport
+{ const b = await chromium.launch(ENGINES[0][2]);
+  for (const w of [320, 390, 768, 1300]) { const ctx = await b.newContext({ viewport: { width: w, height: 900 } }), p = await ctx.newPage(), hs = [], fails = [];
+    for (const r of ROUTES) { await p.goto(U + r); await p.locator("main h1").first().waitFor({ timeout: 15000 }).catch(() => {});
+      const o = await p.evaluate(() => { const h = document.querySelector("header"), tops = [...h.querySelectorAll("nav[aria-label=Main] > *")].map((e) => Math.round(e.getBoundingClientRect().top)), lr = h.querySelector("img").getBoundingClientRect();
+        return { h: h.getBoundingClientRect().height, rows: new Set(tops).size, out: lr.left < 0 || lr.right > innerWidth + 1 || h.getBoundingClientRect().right > innerWidth + 1 }; });
+      hs.push(o.h); if (o.rows > 1 || o.out) fails.push(`${r || "/"}${o.rows > 1 ? ` nav on ${o.rows} lines` : ""}${o.out ? " overflow" : ""}`); }
+    if (Math.max(...hs) - Math.min(...hs) > 8) fails.push(`height ${Math.min(...hs)}-${Math.max(...hs)}`);
+    n++; if (fails.length) bad++; rows.push(["chromium", `header ${w}`, fails.length ? "FAIL" : "ok", fails.join("; ") || `${Math.round(hs[0])} px`]); await ctx.close(); }
+  await b.close(); }
 for (const r of rows) console.log(r.map((c, i) => String(c).padEnd([9, 14, 5, 0][i])).join(" | "));
 console.log(`${n} checks, ${bad} FAIL, ${rows.filter((r) => r[2] === "SKIP").length} engines skipped`); process.exit(bad ? 1 : 0);

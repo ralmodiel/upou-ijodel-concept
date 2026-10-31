@@ -5,7 +5,7 @@ const src = fs.readFileSync(new URL("./sw.tpl.js", import.meta.url), "utf8").rep
 const run = async (req, res) => {
   const puts = [], L = {}, store = { put: async (q) => puts.push(q.url), addAll: async () => {} };
   const ctx = { self: { addEventListener: (t, f) => (L[t] = f), clients: { claim() {} }, skipWaiting() {} }, location: { origin: "https://x.test" }, URL, Response,
-    caches: { open: async () => store, keys: async () => [], delete: async () => true, match: async () => undefined }, fetch: async () => res };
+    caches: { open: async () => store, has: async () => !req.gone, keys: async () => [], delete: async () => true, match: async () => undefined }, fetch: async () => res };
   vm.runInNewContext(src, ctx);
   let handled = false; await new Promise((ok) => { L.fetch({ request: req, respondWith: (p) => { handled = true; Promise.resolve(p).then(ok, ok); } }); setTimeout(ok, 20); });
   await new Promise((r) => setTimeout(r, 5)); return { handled, puts };
@@ -19,6 +19,7 @@ const cases = [
   ["vectors ignored", await run(rq(O + "index/vecs.bin"), rs()), false, 0],
   ["sw.js ignored", await run(rq(O + "sw.js"), rs()), false, 0],
   ["basic ok cached", await run(rq(O + "a.json"), rs()), true, 1],
+  ["cache deleted by consent withdrawal not re-created (R269)", await run({ ...rq(O + "a.json"), gone: true }, rs()), true, 0],
   ["redirected not cached", await run(rq(O + "a.json"), rs({ redirected: true })), true, 0],
   ["opaque not cached", await run(rq(O + "a.json"), rs({ type: "opaque", ok: false })), true, 0],
   ["error status not cached", await run(rq(O + "a.json"), rs({ ok: false })), true, 0],

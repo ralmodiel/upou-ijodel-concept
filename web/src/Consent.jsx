@@ -44,10 +44,13 @@ function Settings({ initial, onClose }) {
 export function CookieConsent() {
   const c = useConsent(), [open, setOpen] = useState(false);
   useEffect(() => { const f = () => setOpen(true); addEventListener(OPEN, f); return () => removeEventListener(OPEN, f); }, []);
+  // R262: the page reserves the banner's height (top on phones, where it scrolls away with the page; bottom from sm) so it covers neither the update bar nor the footer
+  const box = useRef(null);
+  useEffect(() => { const el = box.current, s = document.body.style; if (!el) return; const ro = new ResizeObserver(() => { const h = el.offsetHeight + 12 + "px", top = el.offsetTop < innerHeight / 2; s.paddingTop = top ? h : ""; s.paddingBottom = top ? "" : h; }); ro.observe(el); return () => { ro.disconnect(); s.paddingTop = s.paddingBottom = ""; }; }, [!c && !open]);
   return (
     <>
       {!c && !open && (
-        <div role="dialog" aria-label="Cookie and privacy choices" className="fixed inset-x-3 top-3 z-40 sm:bottom-3 sm:top-auto print:hidden mx-auto max-w-3xl rounded-xl border border-line bg-surface p-4 shadow-2xl sm:p-5">
+        <div ref={box} role="dialog" aria-label="Cookie and privacy choices" className="absolute inset-x-3 top-3 z-40 sm:fixed sm:bottom-3 sm:top-auto print:hidden mx-auto max-w-3xl rounded-xl border border-line bg-surface p-4 shadow-2xl sm:p-5">
           <p className="text-sm text-ink-2"><b className="text-ink">Your privacy.</b> We run no analytics or advertising of our own. With your permission we keep your view lists and filters on this device, download a search model from Hugging Face, and show the journal’s visit counter (Flag Counter, a third-party tracker that counts visits by country and may set its own cookie). <a href="#/privacy" className="font-medium text-link underline">Read the privacy notice</a>.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={() => setConsent({ prefs: true, lists: true, model: true, counter: true })} className="min-h-11 rounded-full bg-action-fill px-5 text-sm font-bold text-white hover:bg-action-2-fill">Accept all</button>

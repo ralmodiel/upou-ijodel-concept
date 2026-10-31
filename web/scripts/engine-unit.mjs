@@ -5,4 +5,8 @@ globalThis.fetch = async (u) => { const b = fs.readFileSync(path.join(dir, u.spl
 const E = await import("../src/engine.js"), S = await E.load(); let n = 0, hit = 0;
 for (const a of S.articles.slice(0, 30)) { for (const pg of [1, 2, 3, 9999]) { const r = await E.pagePassage(a.id, pg, "learning online"); n++; if (r) { hit++; assert.equal(String(r.page), String(pg), `${a.id} p${pg}`); } } }
 assert.equal(await E.pagePassage("nope", 1, ""), null); assert.equal(await E.pagePassage(S.articles[0].id, 9999, ""), null);
-assert(hit > 0, "no page matched at all"); console.log(`engine-unit: ${n} (id,page) pairs, ${hit} hit, 0 FAIL`);
+assert(hit > 0, "no page matched at all");
+// R266: the did-you-mean vocabulary is built on the first unknown word, not at the first query
+await E.search0("online learning"); assert.equal(E.vocabBuilt(), false, "vocab built by a normal query");
+await E.search0("onlne learning"); assert.equal(E.vocabBuilt(), true, "vocab not built for an unknown word"); assert.equal(E.didYouMean("onlne learning"), "online learning");
+console.log(`engine-unit: ${n} (id,page) pairs, ${hit} hit; lazy did-you-mean vocab ok, 0 FAIL`);

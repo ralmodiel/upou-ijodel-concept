@@ -575,6 +575,15 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
   ok("R254/R255 leaving full screen returns focus to the Full screen button (aria-pressed true while in)", await o.evaluate(() => !document.fullscreenElement) && pr === "true" && await o.evaluate(() => document.activeElement?.getAttribute("aria-label")) === "Full screen map", pr);
   await o.goto(U + "/list/a"); await o.getByRole("button", { name: "JSON", exact: true }).waitFor(); const dl = o.waitForEvent("download"); await o.getByRole("button", { name: "JSON", exact: true }).click();
   const nm = (await dl).suggestedFilename(); ok("R259 a list named ../x downloads as a safe file name", nm === "x.json", nm); await cx.close(); }
+// batch 17 (fresh context): R264 list remove + Undo, empty-list links; R265 copy-link status clears after 3 s
+{ const cx = await b.newContext({ viewport: { width: 1400, height: 1500 } }); await cx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: "http://localhost:4173" });
+  await cx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, lists: true, model: false })); if (!localStorage.getItem("ijodel-lists")) localStorage.setItem("ijodel-lists", JSON.stringify([{ id: "a", name: "R264", items: ["3", "10"] }])); } catch {} }); const o = await cx.newPage();
+  await o.goto(U + "/list/a"); const rm = o.getByRole("button", { name: /^Remove from list: / }); await rm.first().waitFor(); const t0 = await rm.first().getAttribute("aria-label"); await rm.first().click();
+  const un = o.getByRole("button", { name: "Undo remove" }); const n1 = await rm.count(), foc = await o.evaluate(() => document.activeElement?.textContent); await un.click(); await o.waitForTimeout(200);
+  ok("R264 Remove takes the chapter out, Undo remove puts it back first (focus on Undo)", n1 === 1 && foc === "Undo remove" && await rm.first().getAttribute("aria-label") === t0 && await rm.count() === 2 && await un.count() === 0, `${n1} ${foc}`);
+  await rm.first().click(); await rm.first().click(); ok("R264 empty list links to Search and Home rows", await o.locator("main p").filter({ hasText: "This list is empty" }).getByRole("link").allInnerTexts().then((l) => l.join() === "Search,Home rows"));
+  await o.getByRole("button", { name: "Undo remove" }).click(); await o.getByRole("button", { name: "Copy share link" }).click(); const st = o.locator("main span[role=status]").first(); await o.waitForTimeout(200); const s0 = await st.innerText(); await o.waitForTimeout(3200);
+  ok("R265 Copy share link: status says so, empty 3.2 s later", s0 === "Share link copied" && await st.innerText() === "", s0); await cx.close(); }
 // R238/R239: Trusted Types report-only sinks are the documented ones; any other CSP violation fails
 { const tt = viol.filter((v) => v[0] === "require-trusted-types-for"), other = viol.filter((v) => v[0] !== "require-trusted-types-for"), sinks = [...new Set(tt.map((v) => v[1]?.split(/[|\n]/)[0].slice(0, 40)))];
   console.log(`TT report-only: ${tt.length} events; sinks: ${sinks.join(" ; ")}`);

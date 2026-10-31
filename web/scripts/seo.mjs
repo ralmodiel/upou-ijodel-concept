@@ -50,9 +50,11 @@ export function seoPlugin() {
       writeFileSync(join(dist, "_headers"), `/*\n  Content-Security-Policy: ${pol}\n  Content-Security-Policy-Report-Only: require-trusted-types-for 'script'\n  Strict-Transport-Security: max-age=31536000; includeSubDomains\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()\n  Cross-Origin-Opener-Policy: same-origin\n  X-Frame-Options: DENY\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n/index/*\n  Cache-Control: public, max-age=3600, must-revalidate\n/sw.js\n  Cache-Control: no-cache\n/index.html\n  Cache-Control: no-cache\n`);
       const urls = [SITE + "/"];
       for (const a of arts) {
-        const url = `${SITE}/read/${a.id}/`, desc = clip(a.abstract) || `${a.title}. ${NAME}.`, authors = a.authors || [];
+        // R268: the original-article link and JSON-LD sameAs only for https on the journal host (same rule as isOrig in App.jsx)
+        const orig = (() => { try { const x = new URL(a.url); return x.protocol === "https:" && x.host === "ijodel.upou.edu.ph" ? a.url : null; } catch { return null; } })();
+        const url = `${SITE}/read/${a.id}/`, desc =clip(a.abstract) || `${a.title}. ${NAME}.`, authors = a.authors || [];
         const ld = { "@context": "https://schema.org", "@type": "ScholarlyArticle", headline: a.title, name: a.title, description: desc, url, inLanguage: "en",
-          author: authors.map((n) => ({ "@type": "Person", name: n })), datePublished: String(a.year), sameAs: a.url, isPartOf: { "@type": "PublicationIssue", issueNumber: String(a.issue?.no ?? ""), isPartOf: { "@type": "PublicationVolume", volumeNumber: String(a.issue?.vol ?? ""), isPartOf: { "@type": "Periodical", name: NAME, issn: "2467-7469" } } } };
+          author: authors.map((n) => ({ "@type": "Person", name: n })), datePublished: String(a.year), ...(orig && { sameAs: orig }), isPartOf: { "@type": "PublicationIssue", issueNumber: String(a.issue?.no ?? ""), isPartOf: { "@type": "PublicationVolume", volumeNumber: String(a.issue?.vol ?? ""), isPartOf: { "@type": "Periodical", name: NAME, issn: "2467-7469" } } } };
         const page = `<!doctype html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 ${csp}
@@ -71,7 +73,7 @@ ${m("citation_abstract_html_url", url)}
 <p>${esc(authors.join("; "))}</p>
 <p>${esc(a.issue?.label || a.year)} · ${NAME}</p>
 <h2>Abstract</h2><p>${esc(a.abstract || "No abstract available.")}</p>
-<p><a href="../../#/read/${esc(a.id)}">Open in the reader</a> · <a href="${esc(a.url)}">Original article</a></p>
+<p><a href="../../#/read/${esc(a.id)}">Open in the reader</a>${orig ? ` · <a href="${esc(orig)}">Original article</a>` : ""}</p>
 </article></main>
 <script src="../../r.js" data-id="${esc(a.id)}"></script>
 </body></html>`;

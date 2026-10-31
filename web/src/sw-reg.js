@@ -6,6 +6,7 @@ export function syncSW() {
   if (!sw || !import.meta.env.PROD) return;
   if (!allow("prefs")) { sw.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {}); caches?.keys().then((ks) => ks.filter((k) => k.startsWith("ijodel-offline-")).forEach((k) => caches.delete(k))).catch(() => {}); return; }
   sw.register("./sw.js").then((reg) => {
+    reg.active?.postMessage("fill"); // R269: re-consent before the old worker went away: rebuild its deleted precache
     const tell = (w) => w && sw.controller && dispatchEvent(new CustomEvent("ijodel-update", { detail: w }));
     tell(reg.waiting);
     reg.addEventListener("updatefound", () => { const w = reg.installing; w?.addEventListener("statechange", () => w.state === "installed" && tell(w)); });

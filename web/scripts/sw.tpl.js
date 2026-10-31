@@ -4,8 +4,10 @@
 const V = "ijodel-offline-__VER__", PRE = [/*PRE*/];
 self.addEventListener("install", (e) => e.waitUntil(caches.open(V).then((c) => c.addAll(PRE))));
 self.addEventListener("activate", (e) => e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith("ijodel-offline-") && k !== V).map((k) => caches.delete(k)))).then(() => self.clients.claim())));
-self.addEventListener("message", (e) => { if (e.data === "skip") self.skipWaiting(); });
-const put = (q, r) => { if (r.ok && r.type === "basic" && !r.redirected) { const c = r.clone(); caches.open(V).then((x) => x.put(q, c)); } return r; };
+// R269: "fill" rebuilds the precache when consent comes back to a revived (unregistered, still active) worker
+self.addEventListener("message", (e) => { if (e.data === "skip") self.skipWaiting(); if (e.data === "fill") e.waitUntil(caches.has(V).then((h) => h || caches.open(V).then((c) => c.addAll(PRE)))); });
+// R269: a cache the page deleted (consent withdrawn) is not re-created by the worker that still controls the page
+const put = (q, r) => { if (r.ok && r.type === "basic" && !r.redirected) { const c = r.clone(); caches.has(V).then((h) => h && caches.open(V).then((x) => x.put(q, c))); } return r; };
 self.addEventListener("fetch", (e) => {
   const q = e.request, u = new URL(q.url);
   if (q.method !== "GET" || u.origin !== location.origin || /\.(bin|wasm)$/.test(u.pathname) || u.pathname.endsWith("/sw.js")) return; // vectors/model stay under the model consent

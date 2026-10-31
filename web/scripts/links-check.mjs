@@ -34,6 +34,9 @@ const on = { rel: true, issue: true, tag: true, category: true, author: true }, 
 check(arts.filter((a) => { const m = g("pub", a.id); return m.seed !== "p:" + a.id || !m.nodes.some((x) => x.id === m.seed); }).map((a) => a.id), "pub map seeds on every article");
 check(arts.filter((a) => a.subjects[0] && !g("tag", decodeURIComponent(encodeURIComponent(a.subjects[0]))).nodes.length).map((a) => a.id), "topic map link resolves");
 check(arts.filter((a) => !g("author", decodeURIComponent(encodeURIComponent(a.authors[0]))).nodes.some((x) => x.id === "p:" + a.id)).map((a) => a.id), "author map link includes the article");
+// R260: every tag/author seed option (seedOptions in Maps.jsx) maps to >= 2 nodes, or build() returns null (the "Nothing to map" message path)
+const seedOptions = new Function("window", grab(maps, /function seedOptions\(kind\) \{[\s\S]*?\n\}\n/) + "return seedOptions;")({ __S: S }), off = {};
+check(["tag", "author"].flatMap((k) => seedOptions(k).flatMap(([, v]) => [on, off].map((o) => [k, v, build(k, v, o)]))).filter(([, , m]) => m && m.nodes.length < 2).map(([k, v]) => k + ":" + v), "every tag/author seed option maps to >= 2 nodes or the message");
 check(arts.flatMap((a) => (a.related || []).filter((r) => !g("pub", a.id).nodes.some((x) => x.id === "p:" + r.id)).map((r) => a.id + "->" + r.id)), "related articles appear on the pub map");
 // 4) hash routes: /tag/<x> and /maps/<kind>/<x> as built in App.jsx/Maps.jsx, parsed the way App's `route.split("/")` + dec() does
 const app = rd("src/App.jsx"), dec = new Function("return " + grab(app, /\(s\) => \{ try \{ return decodeURIComponent\(s\);[^\n]*?\}\s*\}/).replace(/^/, ""))();

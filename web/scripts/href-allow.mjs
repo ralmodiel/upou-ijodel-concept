@@ -4,8 +4,15 @@
 import { chromium } from "playwright-core";
 import { homedir } from "os";
 import fs from "fs";
+// R268: a fixed allowlist (the journal host), not hosts read from the data it is meant to check
+const hosts = new Set(["ijodel.upou.edu.ph", "creativecommons.org", "scholar.google.com", "www.flagcounter.me"]);
+const offList = (u) => { try { const x = new URL(u); return x.protocol !== "https:" || !hosts.has(x.host); } catch { return true; } };
 const A = JSON.parse(fs.readFileSync(new URL("../dist/index/articles.json", import.meta.url)));
-const hosts = new Set([...A.map((a) => { try { return new URL(a.url).host; } catch { return ""; } }).filter(Boolean), "creativecommons.org", "scholar.google.com", "www.flagcounter.me"]);
+let n0 = 0, bad0 = 0;
+for (const a of A) { n0++; if (a.url && offList(a.url)) { bad0++; console.log(`FAIL data url of ${a.id} off the allowlist: ${String(a.url).slice(0, 80)}`); } }
+// R268: prerendered /read/<id>/ pages: JSON-LD sameAs and every https link stay on the allowlist
+for (const id of fs.readdirSync(new URL("../dist/read/", import.meta.url))) { const h = fs.readFileSync(new URL(`../dist/read/${id}/index.html`, import.meta.url), "utf8"), ld = JSON.parse(h.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1] || "{}");
+  n0++; const off = [ld.sameAs, ...[...h.matchAll(/<a href="(https?:[^"]*)"/g)].map((m) => m[1])].filter((u) => u && offList(u.replace(/&amp;/g, "&"))); if (off.length || !ld.sameAs) { bad0++; console.log(`FAIL dist/read/${id} sameAs/link ${off[0] || "missing sameAs"}`); } }
 const routes = ["/", "/search/libre", "/advanced", "/maps", "/read/295", "/issues", "/topics", "/about"];
 const b = await chromium.launch({ executablePath: `${homedir()}/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`, args: ["--no-sandbox"] });
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
@@ -21,4 +28,4 @@ for (const r of routes) {
   // R178: target=_blank anchors need noopener noreferrer; images from another origin need referrerpolicy
   for (const x of await p.evaluate(() => [...document.querySelectorAll("a[target=_blank]")].filter((a) => !/\bnoopener\b/.test(a.rel) || !/\bnoreferrer\b/.test(a.rel)).map((a) => a.href).concat([...document.querySelectorAll("img[src^='http']")].filter((i) => new URL(i.src).origin !== location.origin && !i.referrerPolicy).map((i) => "img " + i.src)))) { n++; bad++; console.log(`FAIL ${r} rel/referrerpolicy ${x.slice(0, 100)}`); }
 }
-await b.close(); console.log(`${n} checks, ${bad} FAIL (${routes.length} routes, ${links} anchors, ${hosts.size} hosts)`); process.exit(bad ? 1 : 0);
+n += n0; bad += bad0; await b.close(); console.log(`${n} checks, ${bad} FAIL (${routes.length} routes, ${links} anchors, ${A.length} data urls + prerendered pages, ${hosts.size} hosts)`); process.exit(bad ? 1 : 0);

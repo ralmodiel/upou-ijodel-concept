@@ -10,7 +10,7 @@ let n = 0, bad = 0; const ok = (m, c, x = "") => { n++; console.log(`${c ? "PASS
 const LISTS = /^ijodel-(lists|list)$/, PREF = /^ijodel-(adv|adv-mode|recent|saved|cite|tour|text|map-seed)$/, NEC = new Set(["ijodel-consent"]), SESSION = new Set(["ijodel-chunk-retry", "ijodel-lite"]);
 const MODEL_STORES = new Set(["ijodel", "transformers-cache", "experimental_transformers-hash-cache"]);
 const dump = (p) => p.evaluate(async () => ({ ls: Object.keys(localStorage), ss: Object.keys(sessionStorage),
-  idb: (await indexedDB.databases()).map((d) => d.name), cache: await caches.keys() }));
+  idb: (await indexedDB.databases()).map((d) => d.name), cache: await caches.keys(), sw: (await navigator.serviceWorker.getRegistrations()).length }));
 
 async function visit(c, withdraw, undecided) {
   const p = await c.newPage(), hosts = new Set(); c.on("request", (r) => { const h = new URL(r.url()).hostname; if (h && h !== "localhost") hosts.add(h); });
@@ -29,6 +29,8 @@ async function visit(c, withdraw, undecided) {
     await p.goto(U + "/#/privacy"); await p.getByRole("button", { name: "Open cookie settings" }).click();
     for (const id of ["c-lists", "c-pref", "c-model", "c-counter"]) { await p.locator("#" + id).setChecked(false); }
     await p.getByRole("button", { name: "Save choices" }).click(); await p.waitForTimeout(1000);
+    // R269: no reload: keep using the page (the old worker may still control it) and look again
+    for (const r of ["/read/3", "/search/online", "/"]) { await p.goto(U + "/#" + r); await p.waitForTimeout(1200); }
   }
   return { p, hosts, s: await dump(p), cookies: await c.cookies() };
 }
@@ -51,6 +53,7 @@ for (const [name, v] of Object.entries(states)) {
   if (a.lists) ok(`${name}: view lists persisted`, s.ls.some((k) => LISTS.test(k)));
   if (!a.lists) ok(`${name}: no view list stored without the lists consent`, !s.ls.some((k) => LISTS.test(k)));
   ok(`${name}: offline cache only under prefs consent`, s.cache.some((k) => /^ijodel-offline-/.test(k)) === !!a.prefs, `[${s.cache.join(" ")}]`);
+  ok(`${name}: service worker registered only under prefs consent (R269)`, (s.sw > 0) === !!a.prefs, `(${s.sw} registrations)`);
   const hostBad = [...hosts].filter((h) => !(a.model && /huggingface\.co$|hf\.co$|jsdelivr\.net$/.test(h)) && !(a.counter && /flagcounter\.me$/.test(h)));
   ok(`${name}: third parties only as allowed`, name === "withdrawn" || !hostBad.length, `[${[...hosts].join(" ")}]`);
   ok(`${name}: document.cookie is empty (R209)`, (await p.evaluate(() => document.cookie)) === "");
@@ -65,6 +68,17 @@ for (const [name, v] of Object.entries(states)) {
   const urls = await q.evaluate(async () => { const o = []; for (const k of await caches.keys()) if (k.startsWith("ijodel-offline-")) for (const r of await (await caches.open(k)).keys()) o.push(r.method + " " + r.url); return o; });
   const bad2 = urls.filter((x) => { const [m, u] = x.split(" "), l = new URL(u); return m !== "GET" || l.origin !== U || l.search || /\.(bin|wasm)$/.test(l.pathname); });
   ok("offline cache holds only same-origin GET URLs without query strings or .bin/.wasm", urls.length > 0 && !bad2.length, `(${urls.length} entries${bad2.length ? "; bad " + bad2.slice(0, 3).join(" ") : ""})`); await cs.close(); }
+// R269: withdraw everything (Forget, no reload), then allow again: the worker re-registers and the offline cache rebuilds
+{ const cr = await b.newContext({ viewport: { width: 1400, height: 1200 } }); await cr.addInitScript(() => { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", 1); localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, lists: true })); } }); const q = await cr.newPage();
+  await q.goto(U + "/"); await q.evaluate(() => navigator.serviceWorker.ready); await q.goto(U + "/#/read/10"); await q.waitForTimeout(1500); const s0 = await dump(q);
+  await q.goto(U + "/#/privacy"); await q.getByRole("button", { name: "Open cookie settings" }).click(); for (const id of ["c-lists", "c-pref"]) await q.locator("#" + id).setChecked(false);
+  await q.getByRole("button", { name: "Save choices" }).click(); await q.goto(U + "/#/read/3"); await q.waitForTimeout(2000); const s1 = await dump(q);
+  await q.goto(U + "/#/privacy"); await q.getByRole("button", { name: "Open cookie settings" }).click(); await q.locator("#c-pref").setChecked(true); await q.getByRole("button", { name: "Save choices" }).click();
+  await q.waitForFunction(() => navigator.serviceWorker.getRegistrations().then((r) => r.length > 0), null, { timeout: 10000 }).catch(() => {}); await q.evaluate(() => navigator.serviceWorker.ready); await q.goto(U + "/#/read/6"); await q.waitForTimeout(2000); const s2 = await dump(q);
+  const off = (s) => s.cache.filter((k) => k.startsWith("ijodel-offline-")).length;
+  ok("R269 before: worker and offline cache present", s0.sw > 0 && off(s0) > 0, `(${s0.sw} sw, ${off(s0)} caches)`);
+  ok("R269 after withdrawal, no reload: no worker, no cache, no IndexedDB, only ijodel-consent", s1.sw === 0 && !s1.cache.length && !s1.idb.length && s1.ls.join() === "ijodel-consent", JSON.stringify(s1));
+  ok("R269 allowed again: worker re-registers, offline cache rebuilds", s2.sw > 0 && off(s2) > 0, `(${s2.sw} sw, ${off(s2)} caches)`); await cr.close(); }
 // The privacy notice must name every store a visitor can end up with, and carry the RA 10173 wording.
 const c = await b.newContext(), p = await c.newPage(); await p.goto(U + "/#/privacy"); await p.waitForSelector("h1");
 const text = await p.locator("article").innerText();

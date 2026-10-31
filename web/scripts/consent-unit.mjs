@@ -53,4 +53,17 @@ for (const [name, choice, want] of [["re-ask, allow lists again: old list kept",
   try { for (let k = 0; k < 1000; k++) m.pref.json("ijodel-saved"); localStorage.setItem("ijodel-saved", '["x"]'); last = m.pref.json("ijodel-saved"); } finally { JSON.parse = P; }
   await w(`1000 pref.json on ${Math.round(big.length / 1024)} KB: parsed ${parses} times (want 2 incl. the changed value)`, () => { assert.equal(parses, 2); assert.deepEqual(last, ["x"]); });
 }
+// R261: Cite's initial style (App.jsx useState initialiser): stored "zzz" gives apa; a valid choice is stored only under prefs consent
+{
+  const app = (await import("node:fs")).readFileSync(path.resolve(import.meta.dirname, "../src/App.jsx"), "utf8"), { STYLES } = await import(pathToFileURL(path.resolve(import.meta.dirname, "../src/cite.js")).href);
+  const init = app.match(/\[st, setSt\] = useState\((\(\) => \{ try \{ return STYLES[^\n]*?"apa"; \} \})\)/)?.[1];
+  globalThis.localStorage = box(); const m = await import(`${f}?${i++}`), st = () => new Function("STYLES", "pref", "return " + init)(STYLES, m.pref)();
+  await w("cite: initialiser found in App.jsx", () => assert.ok(init));
+  m.setConsent({ prefs: true }); localStorage.setItem("ijodel-cite", "zzz");
+  await w("cite: stored zzz -> apa", () => assert.equal(st(), "apa"));
+  m.pref.set("ijodel-cite", "mla");
+  await w("cite: mla kept under prefs consent", () => { assert.equal(localStorage.getItem("ijodel-cite"), "mla"); assert.equal(st(), "mla"); });
+  m.setConsent({ lists: true }); m.pref.set("ijodel-cite", "chicago");
+  await w("cite: without prefs consent nothing stored", () => assert.equal(localStorage.getItem("ijodel-cite"), null));
+}
 console.log(`${n} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);
