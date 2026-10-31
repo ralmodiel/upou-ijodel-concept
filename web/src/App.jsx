@@ -1,3 +1,4 @@
+import { Emph, EmphKey } from "./emph.jsx";
 import { parseQuery, pushUniq } from "./query.js";
 import { weakDevice } from "./device.js";
 import { recommend } from "./recommend.js";
@@ -722,8 +723,8 @@ function Overview({ a, mode, setMode }) {
         <div role="group" aria-label="Show" className="flex overflow-hidden rounded-md border border-line text-sm">{[["abstract", "Abstract"], ["summary", "AI summary"]].map(([x, l]) => <button key={x} type="button" aria-pressed={mode === x} onClick={() => setMode(x)} className={seg(mode === x)}>{l}</button>)}</div>
         {mode === "summary" && <div role="group" aria-label="Summary length" className="flex overflow-hidden rounded-md border border-line text-sm">{LENS.map(([x, l]) => <button key={x} type="button" aria-pressed={k === x} onClick={() => setK(x)} className={seg(k === x)}>{l}</button>)}</div>}</div>
       {mode === "summary" && <p role="note" className="mt-3 rounded-md bg-crimson-soft px-3 py-2 text-sm text-ink-2"><b>AI-generated.</b> These summaries were written by a language model from the full text and may contain errors; check the original article.</p>}
-      {mode === "summary" && <NoCite className="mt-2" />}
-      <div className={`mt-4 space-y-4 text-lg leading-8 text-ink${mode === "summary" ? " mx-auto max-w-prose rounded-lg border border-line bg-surface px-5 py-6 shadow-sm sm:px-10 sm:py-8 text-justify hyphens-auto [text-wrap:pretty]" : ""}`}>{text.split(/\n+/).map((p, i) => <p key={i}>{p}</p>)}</div>
+      {mode === "summary" && <NoCite className="mt-2" />}{mode === "summary" && <EmphKey />}
+      <div className={`mt-4 space-y-4 text-lg leading-8 text-ink${mode === "summary" ? " mx-auto max-w-prose rounded-lg border border-line bg-surface px-5 py-6 shadow-sm sm:px-10 sm:py-8 text-justify hyphens-auto [text-wrap:pretty]" : ""}`}>{text.split(/\n+/).map((p, i) => <p key={i}>{mode === "summary" ? <Emph text={p} terms={[...(a.subjects || []), ...(a.categories || [])]} /> : p}</p>)}</div>
     </section>
     {a.diff && <section aria-label="What sets this chapter apart" className="mt-8"><h2 className="border-b border-line pb-2 font-serif text-2xl">What sets this chapter apart<AiLabel /></h2>
         <NoCite what="AI comparison" className="mt-3" />
