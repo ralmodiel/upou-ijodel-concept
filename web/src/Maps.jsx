@@ -217,8 +217,8 @@ export function Maps({ kind = "pub", id }) {
       </div>
       {lay && <a href="#nodes" onClick={(e) => { e.preventDefault(); const d = document.getElementById("map-nodelist"); d.open = true; d.querySelector("summary").focus(); }} className="skip">Skip the map, go to the node list</a>}
       <div className={`mt-2 grid gap-4 sm:mt-4 grid-cols-[minmax(0,1fr)] ${th && !fs ? "" : "lg:grid-cols-[minmax(0,1fr)_20rem]"}`}>
-        <div ref={panel} className={`overflow-hidden rounded-xl border border-line bg-surface ${fs ? "flex h-screen flex-col !rounded-none" : ""} ${th && !fs ? "relative !rounded-none" : ""}`} style={th && !fs ? { width: winW, marginLeft: thX } : undefined}>
-          <div className="flex flex-wrap items-center gap-3 border-b border-line px-3 py-2 text-sm"><span className="text-ink-3">Layout</span>
+        <div ref={panel} className={`overflow-clip rounded-xl border border-line bg-surface ${fs ? "flex h-screen flex-col !rounded-none" : ""} ${th && !fs ? "relative !rounded-none" : ""}`} style={th && !fs ? { width: winW, marginLeft: thX } : undefined}>
+          <div className={`flex flex-wrap items-center gap-3 border-b border-line px-3 py-2 text-sm ${th && !fs ? "sticky top-0 z-10 bg-surface" : ""}`}><span className="text-ink-3">Layout</span>
             <div className="flex overflow-hidden rounded-md border border-line">{[["circuit", "Circuit"], ...(dim === "3d" ? [["force", "Force"]] : []), ["rings", "Rings"]].map(([k, l]) => <button key={k} type="button" aria-pressed={mode === k} onClick={() => setMode(k)} className={`min-h-10 px-3 ${mode === k ? "bg-action-fill text-white" : "text-ink-2"}`}>{l}</button>)}</div>
             <span className="text-ink-3">View</span>
             <div className="flex overflow-hidden rounded-md border border-line">{[["3d", "3D"], ["2d", "2D"]].map(([k, l]) => <button key={k} type="button" aria-pressed={dim === k} onClick={() => { setFail(""); setDim(k); }} onMouseEnter={k === "3d" ? load3D : undefined} onFocus={k === "3d" ? load3D : undefined} className={`min-h-10 px-3 ${dim === k ? "bg-action-fill text-white" : "text-ink-2"}`}>{l}</button>)}</div>
