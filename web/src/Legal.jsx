@@ -20,7 +20,7 @@ export function Privacy() {
       <h2 className={h}>Other services your browser contacts</h2>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-2">
         <li><b>GitHub Pages</b> serves this site and, like any web host, receives your IP address and browser details in its server logs. See GitHub's privacy statement.</li>
-        <li><b>Hugging Face</b> (only if you allow the semantic search model): your browser downloads a ~34 MB model (Xenova/bge-small-en-v1.5, a quantized BGE-small English embedding model, huggingface.co/Xenova/bge-small-en-v1.5), so Hugging Face receives your IP address and browser details. Without it, search uses keyword scoring only.</li>
+        <li><b>Hugging Face</b> (only if you allow the semantic search model): your browser downloads a ~34 MB model (Xenova/bge-small-en-v1.5, a quantized BGE-small English embedding model, huggingface.co/Xenova/bge-small-en-v1.5; its files may be served from hf.co hosts), so Hugging Face receives your IP address and browser details. Without it, search uses keyword scoring only.</li>
         <li><b>jsDelivr</b> (cdn.jsdelivr.net, same consent): serves the ~6 MB ONNX runtime that runs the model, and receives your IP address and browser details.</li>
         <li><b>Flag Counter</b> (flagcounter.me, only if you allow the visit counter): the footer shows the journal's visitor counter, so Flag Counter receives your IP address and browser details, counts your visit by country, and may set its own cookie. It is the same counter the journal's site uses.</li>
         <li><b>ijodel.upou.edu.ph</b>: links to the original articles and PDFs open the journal's own site, which has its own policies.</li>

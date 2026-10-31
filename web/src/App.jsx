@@ -175,7 +175,7 @@ function Header({ route }) {
   const n = new Set(useLists().flatMap((l) => l.items)).size;
   // the nav scrolls sideways on a phone: bring the active tab (the only a.bg-surface in it) into view
   useEffect(() => { document.querySelector('nav[aria-label="Main"] a.bg-surface')?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [route]);
-  const tab = (to, label, on) => <Link to={to} onMouseEnter={LOAD[to]} onFocus={LOAD[to]} onTouchStart={LOAD[to]} className={`inline-flex min-h-11 items-center rounded-full px-2.5 text-sm font-medium sm:px-4 ${on ? "bg-surface text-navy" : "text-white/90 hover:bg-white/10"}`}>{label}</Link>;
+  const tab = (to, label, on) => <Link to={to} aria-current={on ? "page" : undefined} onMouseEnter={LOAD[to]} onFocus={LOAD[to]} onTouchStart={LOAD[to]} className={`inline-flex min-h-11 items-center rounded-full px-2.5 text-sm font-medium sm:px-4 ${on ? "bg-surface text-navy" : "text-white/90 hover:bg-white/10"}`}>{label}</Link>;
   return (
     <header className="text-white print:hidden">
       <div className="bg-surface"><div className="mx-auto max-w-6xl min-[1536px]:max-w-[88rem] px-4 sm:px-8">
@@ -245,7 +245,7 @@ function Cover({ a, className = "", small }) {
         ][(s >> 1) % 3]}
         <path d={`M0 ${95 + (s % 20)} Q 50 ${70 + (s % 30)} 100 ${100 + (s % 18)} V133 H0z`} fill="#000" opacity=".12" />
       </svg>
-      <Icon m={a.motif} className="absolute -bottom-[6%] -right-[6%] h-[62%] w-[62%] text-white/30" w={0.7} />
+      <Icon m={a.motif} className="absolute -bottom-[6%] -right-[6%] h-[62%] w-[62%] text-white/30" w={1.5} />
       <div aria-hidden="true" className="face relative z-[1] flex h-full flex-col p-[8%] text-white">
         <span className="text-[4.4cqw] font-bold uppercase tracking-[0.14em] text-white">IJODeL · Vol. {a.issue.vol}</span>
         <div className="mt-auto" />
@@ -415,7 +415,7 @@ function Topics() {
     <section className="mx-auto max-w-6xl min-[1536px]:max-w-[88rem] px-4 py-8 sm:px-8">
       <h1 className="font-serif text-3xl">Topics</h1>
       <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{cats.map(([c, items]) => <li key={c}><Link to={"/cat/" + slug(c)} className="block h-full overflow-hidden rounded-xl border border-line bg-surface shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-        <div className="relative flex h-28 items-center justify-center overflow-hidden text-white" style={{ background: grad(items[0], 120) }}><Icon m={items[0].motif} className="h-20 w-20 opacity-80" w={0.8} /></div>
+        <div className="relative flex h-28 items-center justify-center overflow-hidden text-white" style={{ background: grad(items[0], 120) }}><Icon m={items[0].motif} className="h-20 w-20 opacity-80" w={1.5} /></div>
         <div className="p-3"><h3 className="font-serif text-lg leading-snug">{c}</h3><p className="text-xs text-ink-3">{items.length} chapters</p></div></Link></li>)}</ul>
       <h2 className="mt-10 font-serif text-2xl">Popular tags</h2>
       <p className="mt-3 flex flex-wrap gap-2">{Object.entries(tc).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).slice(0, 60).map(([s, n]) => <Link key={s} to={tagTo(s)} className="rounded-full border border-line bg-surface px-3 py-1 text-sm text-ink-2 hover:border-action-2 hover:text-action">{s} <span className="opacity-60">{n}</span></Link>)}</p>

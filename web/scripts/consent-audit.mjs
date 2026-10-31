@@ -77,6 +77,10 @@ ok("every storage key in the code is a known store", !unknown.length, `(${keys.l
 for (const k of keys.filter((k) => PREF.test(k))) ok(`privacy notice explains preference "${k}"`, PURPOSE[k]?.test(text), PURPOSE[k] ? "" : "(no purpose mapped)");
 for (const w of ["Republic Act No. 10173", "National Privacy Commission", "right to be informed", "erasure", "data portability", "Data Protection Officer", "jsDelivr", "Hugging Face", "Flag Counter"])
   ok(`privacy notice: "${w}"`, text.includes(w));
+// R188: every host in the built CSP's connect-src and img-src (scheme and "*." dropped) appears in the privacy text
+const csp = fs.readFileSync(new URL("../dist/index.html", import.meta.url), "utf8").match(/Content-Security-Policy" content="([^"]*)"/)[1];
+for (const h of new Set([...csp.matchAll(/(?:connect|img)-src ([^;]*)/g)].flatMap((m) => m[1].split(" ")).filter((t) => t.startsWith("https://")).map((t) => t.replace(/^https:\/\/(\*\.)?/, ""))))
+  ok(`privacy notice names CSP host "${h}"`, text.toLowerCase().includes(h.toLowerCase()) || (h === "www.flagcounter.me" && text.includes("Flag Counter")), "");
 const ph = [...text.matchAll(/\[[^\]]*to be completed[^\]]*\]/g)].map((m) => m[0]);
 console.log(`UPOU placeholders (${ph.length}):`); ph.forEach((x) => console.log("  - " + x));
 await b.close(); console.log(`${n} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);

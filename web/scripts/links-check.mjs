@@ -35,4 +35,10 @@ check(arts.filter((a) => { const m = g("pub", a.id); return m.seed !== "p:" + a.
 check(arts.filter((a) => a.subjects[0] && !g("tag", decodeURIComponent(encodeURIComponent(a.subjects[0]))).nodes.length).map((a) => a.id), "topic map link resolves");
 check(arts.filter((a) => !g("author", decodeURIComponent(encodeURIComponent(a.authors[0]))).nodes.some((x) => x.id === "p:" + a.id)).map((a) => a.id), "author map link includes the article");
 check(arts.flatMap((a) => (a.related || []).filter((r) => !g("pub", a.id).nodes.some((x) => x.id === "p:" + r.id)).map((r) => a.id + "->" + r.id)), "related articles appear on the pub map");
+// 4) hash routes: /tag/<x> and /maps/<kind>/<x> as built in App.jsx/Maps.jsx, parsed the way App's `route.split("/")` + dec() does
+const app = rd("src/App.jsx"), dec = new Function("return " + grab(app, /\(s\) => \{ try \{ return decodeURIComponent\(s\);[^\n]*?\}\s*\}/).replace(/^/, ""))();
+const tagTo = new Function("return " + grab(app, /\(t\) => "\/tag\/" \+ encodeURIComponent\(t\)/))();
+const vals = [...new Set([...arts.flatMap((a) => a.subjects), ...arts.flatMap((a) => a.authors), "a/b", "100%", "50%25", "q?x", "a#b", "r&d", "%E0%A4%A", " "])];
+check(vals.filter((v) => dec(tagTo(v).split("/").filter(Boolean)[1]) !== v), `${vals.length} tags/authors round-trip through /tag/<x>`);
+check(vals.filter((v) => dec(("/maps/author/" + encodeURIComponent(v)).split("/").filter(Boolean)[2]) !== v), `${vals.length} values round-trip through /maps/<kind>/<x>`);
 console.log(`${n} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);

@@ -190,6 +190,7 @@ export function Maps({ kind = "pub", id }) {
     if (dim === "3d") { const a = document.createElement("a"); a.download = "ijodel-map.png"; a.href = g3.current.png(); a.click(); return; }
     const s = new XMLSerializer().serializeToString(svg.current), img = new Image();
     img.onload = () => { const c = document.createElement("canvas"); c.width = W * 2; c.height = H * 2; const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height); const a = document.createElement("a"); a.download = "ijodel-map.png"; a.href = c.toDataURL("image/png"); a.click(); };
+    img.onerror = () => setFound("Could not save the image"); // R181: say so instead of doing nothing
     img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s);
   };
   // Fit the whole graph in the frame; the user's zoom and pan sit on top of this.

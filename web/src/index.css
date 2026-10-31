@@ -15,6 +15,7 @@
 }
 :root { color-scheme: light; /* round 96 motion tokens */ --dur-fast: .15s; --dur: .25s; --dur-slow: .6s; --ease-std: ease; }
 h2 { font-weight: 400; }
+::selection { background: var(--color-sky); color: var(--color-ink); } /* R182 */
 body { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-sans); }
 :focus-visible { outline: 2px solid var(--color-action-2); outline-offset: 2px; }
 /* R142: SVG map nodes get a stroke ring (the outline on a <g> is unreliable); #286699 is 5.9:1 on white */

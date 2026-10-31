@@ -11,7 +11,7 @@ const IMG = () => [m("og:image", SITE + "/img/social.png", "property"), m("og:im
 const head = (title, desc, url) => [`<title>${esc(title)}</title>`, m("description", desc), `<link rel="canonical" href="${url}">`,
   m("og:type", "article", "property"), m("og:site_name", "IJODeL", "property"), m("og:title", title, "property"), m("og:description", desc, "property"), m("og:url", url, "property"),
   m("twitter:card", "summary_large_image"), IMG(), m("twitter:title", title), m("twitter:description", desc)].join("\n");
-export const homeTags = () => [...["articles", "chunks", "issues"].map((f) => `<link rel="preload" as="fetch" href="./index/${f}.json" crossorigin>`), m("description", DESC), `<link rel="canonical" href="${SITE}/">`, m("theme-color", "#0b2a4a"),
+export const homeTags = () => [...["articles", "chunks", "issues"].map((f) => `<link rel="preload" as="fetch" href="./index/${f}.json" crossorigin>`), m("description", DESC), `<link rel="canonical" href="${SITE}/">`, m("theme-color", "#28345a"),
   m("og:type", "website", "property"), m("og:site_name", "IJODeL", "property"), m("og:title", `IJODeL — ${NAME}`, "property"), m("og:description", DESC, "property"), m("og:url", SITE + "/", "property"),
   m("twitter:card", "summary_large_image"), IMG(), m("twitter:title", "IJODeL"), m("twitter:description", DESC),
   `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "WebSite", name: "IJODeL", url: SITE + "/", potentialAction: { "@type": "SearchAction", target: `${SITE}/#/search/{search_term_string}`, "query-input": "required name=search_term_string" } }).replace(/</g, "\\u003c")}</script>`].join("\n");
