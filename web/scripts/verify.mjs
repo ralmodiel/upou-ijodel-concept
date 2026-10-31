@@ -12,7 +12,7 @@ const gz = (f) => zlib.gzipSync(fs.readFileSync(f)).length / 1024;
 const assets = fs.readdirSync(path.join(dist, "assets")).map((f) => path.join(dist, "assets", f));
 const sum = (fs_) => Math.round(fs_.reduce((s, f) => s + gz(f), 0));
 for (const [name, files, max] of [
-  ["entry JS", assets.filter((f) => /index-.*\.js$/.test(f)), 140],
+  ["entry JS", assets.filter((f) => /index-.*\.js$/.test(f)), 82],
   ["CSS", assets.filter((f) => f.endsWith(".css")), 30],
   ["startup data", ["articles.json", "issues.json", "chunks.json"].map((f) => path.join(dist, "index", f)), 250],
 ]) { const kb = sum(files); check(kb <= max, `${name} ${kb} KB gz (budget ${max})`); }

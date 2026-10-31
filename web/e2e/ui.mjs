@@ -211,7 +211,7 @@ ok("no page errors", errs.length === 0, errs.slice(0, 2).join(" | "));
   await c2.goto(U + "/read/10"); await c2.getByRole("button", { name: /Add to view list|\+/ }).first().click().catch(() => {});
   const keys = await c2.evaluate(() => Object.keys(localStorage));
   ok("essential-only stores nothing but the choice", keys.length === 1 && keys[0] === "ijodel-consent");
-  await c2.goto(U + "/privacy"); ok("privacy notice page exists", await c2.getByRole("heading", { name: "Privacy notice" }).count() === 1);
+  await c2.goto(U + "/privacy"); await c2.getByRole("heading", { name: "Privacy notice" }).waitFor().catch(() => {}); ok("privacy notice page exists", await c2.getByRole("heading", { name: "Privacy notice" }).count() === 1);
   await c2.getByRole("button", { name: "Cookie settings" }).first().click();
   ok("header has a Cookie settings button that opens the dialog", await c2.getByRole("navigation", { name: "Main" }).getByRole("button", { name: "Cookie settings" }).count() === 1 && await c2.getByRole("dialog", { name: "Cookie and privacy settings" }).count() === 1);
   await c2.getByLabel("Search history and settings").check(); await c2.getByRole("button", { name: "Save choices" }).click();
@@ -305,7 +305,7 @@ ok("lists: reorder", JSON.parse(await p.evaluate(() => localStorage.getItem("ijo
   await p.goto(link.replace(/^.*#/, U)); await p.waitForSelector("text=Shared view list"); ok("lists: share link opens the shared list", await p.locator("main li").count() === 2);
   await p.goto(U + "/list/share/x/295,<img>,99999"); await p.waitForSelector("text=Shared view list"); ok("lists: shared link keeps only known chapters", /1 chapter\./.test(await p.locator("main p").first().innerText())); }
 await p.goto(U + "/maps/pub/295"); await p.waitForSelector("svg g[data-node]"); await wait(500);
-{ await p.getByLabel("Find a node on the map").fill(await p.locator("svg g[data-node]").nth(3).getAttribute("aria-label").then((l) => l.split(": ")[1].slice(0, 12))); await p.keyboard.press("Enter"); await wait();
+{ await p.getByLabel("Find a node on the map").fill(await p.locator("svg g[data-node][tabindex]").nth(3).getAttribute("aria-label").then((l) => l.split(": ")[1].slice(0, 12))); await p.keyboard.press("Enter"); await wait();
   ok("maps: node search selects and focuses a node", await p.evaluate(() => document.activeElement?.getAttribute("aria-pressed")) === "true");
   const a0 = await p.evaluate(() => document.activeElement.dataset.node); await p.keyboard.press("ArrowRight"); ok("maps: arrow keys move between nodes", await p.evaluate((a) => document.activeElement.dataset.node && document.activeElement.dataset.node !== a, a0));
   ok("maps: every line has a why-connected tooltip", await p.locator("svg > g > g:not([data-node]) > title").count() === await p.locator("svg > g > g:not([data-node])").count() && /→/.test(await p.locator("svg title").first().textContent()));
@@ -430,6 +430,13 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
   ok("R102 maps: the Show options box covers no node at 1024px on 5 seeds", hit.length === 0, hit[0] ?? ""); await p.setViewportSize({ width: 1400, height: 1500 }); }
 { await p.goto(U + "/advanced"); await p.waitForSelector("h1"); await wait(300); const inp = p.getByLabel("Add to Required"); await inp.fill("distance learning"); await inp.press("Enter"); await wait(200);
   ok("R105 advanced: Add announces the result and keeps focus in the input", await p.getByRole("status").filter({ hasText: /Added .* to Required/ }).count() === 1 && await p.evaluate(() => document.activeElement?.getAttribute("aria-label")) === "Add to Required"); }
+{ await p.goto(U + "/maps/pub/295"); await p.waitForSelector('svg[aria-label="Relationship map"]'); await wait(600);
+  const au = p.getByLabel("Authors", { exact: true }), h0 = p.url(), c0 = await au.isChecked();
+  await p.evaluate(() => { location.hash = "/maps/pub/3"; }); await wait(600); await au.click(); await wait(300);
+  await p.keyboard.press("Control+z"); await wait(400); await p.keyboard.press("Control+z"); await wait(600);
+  const back = p.url() === h0 && await au.isChecked() === c0;
+  await p.keyboard.press("Control+Shift+z"); await wait(400); await p.keyboard.press("Control+Shift+z"); await wait(600);
+  ok("R111 maps: Ctrl+Z twice restores the earlier seed and options, Ctrl+Shift+Z returns", back && p.url().endsWith("/maps/pub/3") && await au.isChecked() !== c0, `(${h0} ${p.url()})`); }
 ok("no page errors (rounds 38-46)", errs.length === 0, errs.slice(0, 2).join(" | "));
 ok("no CSP violations by the end (model load included)", !csp.length, csp[0]?.slice(0, 120) ?? "");
 await b.close(); process.exit(bad ? 1 : 0);

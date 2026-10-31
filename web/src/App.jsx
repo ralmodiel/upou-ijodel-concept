@@ -1,7 +1,7 @@
 import { parseQuery } from "./query.js";
 import { recommend } from "./recommend.js";
 import { bibtex, citeStyle, styleText, STYLES, ris } from "./cite.js";
-import { About, CookieConsent, Privacy, openCookieSettings } from "./Consent.jsx";
+import { CookieConsent, openCookieSettings } from "./Consent.jsx";
 import { useSeo } from "./useSeo.js";
 import { pref, useConsent, allow } from "./consent.js";
 import { syncSW, applyUpdate } from "./sw-reg.js";
@@ -533,6 +533,7 @@ export const lazyRetry = (load, pick = (m) => m) => lazy(() => load().then((m) =
 const LOAD = { "/advanced": () => import("./Advanced.jsx"), "/maps": () => import("./Maps.jsx") }; // also fetched on tab hover/focus/touch (intent)
 const Advanced = lazyRetry(LOAD["/advanced"], (m) => m.Advanced);
 const Maps = lazyRetry(LOAD["/maps"], (m) => m.Maps);
+const Privacy = lazyRetry(() => import("./Legal.jsx"), (m) => m.Privacy), About = lazyRetry(() => import("./Legal.jsx"), (m) => m.About); // long static text, own chunk
 // The journal's own cover of a whole issue, small, linking to the issue.
 export function IssueThumb({ a, className = "" }) {
   const m = window.__S.issues[issueKey(a)];
@@ -812,7 +813,7 @@ export default function App() {
       {!online && <p role="status" className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-950 print:hidden">You are offline. Pages already opened still work; new search data or chapters may not load until you reconnect.</p>}
       <main id="main" tabIndex={-1} className={parts[0] === undefined || state !== "ok" ? "min-h-[60vh]" : ["search", "advanced", "maps"].includes(parts[0]) ? "mx-auto max-w-6xl min-[1536px]:max-w-[88rem] px-4 py-8 sm:px-8" : "mx-auto max-w-5xl px-4 py-8"}>
         {state === "loading" ? <div className="mx-auto max-w-6xl min-[1536px]:max-w-[88rem] p-8" role="status" aria-label="Loading the journal index"><div className="skeleton h-64" /><div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="skeleton aspect-[3/4]" />)}</div></div> : state !== "ok" ? <div className="p-8" role="alert"><p>{state}</p>{!online && <p className="mt-1 text-ink-2">You are offline.</p>}<button type="button" onClick={() => location.reload()} className="mt-3 min-h-11 rounded-full bg-action-fill px-5 text-white">Retry</button></div> :
-          <Boundary key={route}>{parts[0] && !ROUTES.includes(parts[0]) ? <NotFound route={route} /> : parts[0] === "privacy" ? <Privacy /> : parts[0] === "about" ? <About /> : parts[0] === "read" ? <Reader id={parts[1]} at={parts[2] === "p" && /^\d+$/.test(parts[3] || "") ? [parts[3], dec(parts[4] || "")] : null} sec={parts[2] === "s" && /^(overview|faq|related)$/.test(parts[3] || "") ? parts[3] : null} /> : parts[0] === "list" ? (parts[1] === "share" ? <SharedList name={parts[2]} ids={parts[3]} /> : <MyList lid={parts[1]} />) : parts[0] === "issues" ? <Issues /> : parts[0] === "topics" ? <Topics /> : parts[0] === "advanced" ? <Suspense fallback={<><h1 className="font-serif text-3xl">Advanced search</h1><AdvIntro /><div className="skeleton mt-4 h-[85vh]" role="status" aria-label="Loading" /></>}><Advanced share={parts[1] === "s" ? parts[2] : null} /></Suspense> : parts[0] === "maps" ? <Suspense fallback={<><h1 className="font-serif text-3xl">Relationship map</h1><MapsIntro /><div className="skeleton mt-4 h-[85vh]" role="status" aria-label="Loading" /></>}><Maps kind={parts[1]} id={parts[2] && dec(parts[2])} /></Suspense> : parts[0] === "search" ? <Search q0={dec(parts[1] || "")} /> :
+          <Boundary key={route.startsWith("/maps") ? "/maps" : route}>{parts[0] && !ROUTES.includes(parts[0]) ? <NotFound route={route} /> : parts[0] === "privacy" ? <Suspense fallback={<div className="skeleton h-[60vh]" role="status" aria-label="Loading" />}><Privacy /></Suspense> : parts[0] === "about" ? <Suspense fallback={<div className="skeleton h-[60vh]" role="status" aria-label="Loading" />}><About /></Suspense> : parts[0] === "read" ? <Reader id={parts[1]} at={parts[2] === "p" && /^\d+$/.test(parts[3] || "") ? [parts[3], dec(parts[4] || "")] : null} sec={parts[2] === "s" && /^(overview|faq|related)$/.test(parts[3] || "") ? parts[3] : null} /> : parts[0] === "list" ? (parts[1] === "share" ? <SharedList name={parts[2]} ids={parts[3]} /> : <MyList lid={parts[1]} />) : parts[0] === "issues" ? <Issues /> : parts[0] === "topics" ? <Topics /> : parts[0] === "advanced" ? <Suspense fallback={<><h1 className="font-serif text-3xl">Advanced search</h1><AdvIntro /><div className="skeleton mt-4 h-[85vh]" role="status" aria-label="Loading" /></>}><Advanced share={parts[1] === "s" ? parts[2] : null} /></Suspense> : parts[0] === "maps" ? <Suspense fallback={<><h1 className="font-serif text-3xl">Relationship map</h1><MapsIntro /><div className="skeleton mt-4 h-[85vh]" role="status" aria-label="Loading" /></>}><Maps kind={parts[1]} id={parts[2] && dec(parts[2])} /></Suspense> : parts[0] === "search" ? <Search q0={dec(parts[1] || "")} /> :
           ["cat", "year", "issue", "tag"].includes(parts[0]) ? <Group kind={parts[0]} id={parts[1]} /> : <Browse />}</Boundary>}
       </main>
       <footer className="mt-10 bg-ink-fill text-sm text-white/80 print:hidden">
@@ -833,7 +834,7 @@ export default function App() {
           </div>
         </div>
         <p className="border-t border-white/15 px-4 pt-4 text-center text-xs text-white/80"><a href="mailto:roque.almodiel@gmail.com?subject=A%20similar%20site%20for%20our%20repository" className="inline-flex min-h-11 items-center gap-2 underline hover:text-white"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>Want a similar site for your repository, public or intranet? Email the developer.</a></p>
-        <p className="px-4 pb-4 pt-1 text-center text-xs text-white/65">Proof of concept: summaries, questions and answers, and related-reading notes are AI-generated, so check the original. · <a href="#/about" className="underline hover:text-white">About</a> · <a href="#/privacy" className="underline hover:text-white">Privacy</a> · <button type="button" onClick={openCookieSettings} className="underline hover:text-white">Cookie settings</button></p>
+        <p className="px-4 pb-4 pt-1 text-center text-xs text-white/65">Proof of concept: summaries, questions and answers, and related-reading notes are AI-generated, so check the original. · <a href="#/about" className="underline hover:text-white">About</a> · <a href="#/privacy" className="underline hover:text-white">Privacy</a> · <button type="button" onClick={openCookieSettings} className="inline-block py-3 underline hover:text-white">Cookie settings</button></p>
       </footer>
       <CookieConsent />
     </>

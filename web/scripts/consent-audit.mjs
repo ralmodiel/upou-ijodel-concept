@@ -57,6 +57,13 @@ for (const [name, v] of Object.entries(states)) {
   if (name === "undecided") ok("undecided: consent banner shown", await p.getByRole("dialog", { name: "Cookie and privacy choices" }).count() > 0);
   await c.close();
 }
+// R119: SW cache hygiene: after search, read and maps, the offline cache holds same-origin GET URLs only, none with a query string, none .bin/.wasm
+{ const cs = await b.newContext({ viewport: { width: 1400, height: 1200 } }); await cs.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, lists: true, model: false })); } catch {} }); const q = await cs.newPage();
+  await q.goto(U + "/"); await q.evaluate(() => navigator.serviceWorker?.ready); await q.reload(); await q.waitForTimeout(1500);
+  for (const r of ["/search/libre", "/read/10", "/maps/pub/3", "/"]) { await q.goto(U + "/#" + r); await q.waitForTimeout(1800); }
+  const urls = await q.evaluate(async () => { const o = []; for (const k of await caches.keys()) if (k.startsWith("ijodel-offline-")) for (const r of await (await caches.open(k)).keys()) o.push(r.method + " " + r.url); return o; });
+  const bad2 = urls.filter((x) => { const [m, u] = x.split(" "), l = new URL(u); return m !== "GET" || l.origin !== U || l.search || /\.(bin|wasm)$/.test(l.pathname); });
+  ok("offline cache holds only same-origin GET URLs without query strings or .bin/.wasm", urls.length > 0 && !bad2.length, `(${urls.length} entries${bad2.length ? "; bad " + bad2.slice(0, 3).join(" ") : ""})`); await cs.close(); }
 // The privacy notice must name every store a visitor can end up with, and carry the RA 10173 wording.
 const c = await b.newContext(), p = await c.newPage(); await p.goto(U + "/#/privacy"); await p.waitForSelector("h1");
 const text = await p.locator("article").innerText();

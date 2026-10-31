@@ -1,4 +1,4 @@
-// Axe check: node scripts/a11y.mjs  (needs `vite preview` on :4173). Light and dark schemes. Prints "N pages, M violations" + top rule ids; exits 1 on violations.
+// Axe check: node scripts/a11y.mjs  (needs `vite preview` on :4173). Light theme only. Prints "N pages, M violations" + top rule ids; exits 1 on violations.
 import { chromium } from "playwright-core";
 import { createRequire } from "module";
 import { readFileSync } from "fs";
@@ -6,7 +6,7 @@ import { homedir } from "os";
 const axeSrc = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
 const b = await chromium.launch({ executablePath: `${homedir()}/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`, args: ["--no-sandbox", "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 const rules = {}; let n = 0, pages = 0;
-for (const scheme of ["light", "dark"]) {
+for (const scheme of ["light"]) {
 const ctx = await b.newContext({ viewport: { width: 1300, height: 900 }, colorScheme: scheme });
 await ctx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); } catch {} });
 const p = await ctx.newPage();

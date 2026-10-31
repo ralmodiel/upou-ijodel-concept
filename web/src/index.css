@@ -6,7 +6,7 @@
   --color-ink: #333333; --color-ink-2: #555555; --color-ink-3: #5d626b; --color-line: #dfe3ea;
   --color-navy: #28345a; --color-action: #194060; --color-action-2: #286699; --color-navy-soft: #e8ebf3;
   --color-link: #8e182e; --color-link-2: #3b050f; --color-crimson-soft: #f6e8ea; --color-sky: #b9c6ee;
-  /* fills keep the brand colours in both themes (white text on them); the text tokens above flip in dark */
+  /* fills keep the brand colours (white text on them) */
   --color-navy-fill: #28345a; --color-action-fill: #194060; --color-action-2-fill: #286699; --color-link-fill: #8e182e; --color-link-2-fill: #3b050f; --color-ink-fill: #333333;
   --color-glass: rgb(255 255 255 / .85);
   /* round 47 scale: spacing follows Tailwind's 4px step; type steps used: xs .75 / sm .875 / base 1 / lg 1.125 / xl+ serif headings */
