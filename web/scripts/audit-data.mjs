@@ -33,4 +33,7 @@ check(chunks.filter((id) => !ids.has(id)), "chunk ids resolve");
 check(chunks.length === pass.length && chunks.length === vecs ? [] : [`chunks ${chunks.length} passages ${pass.length} vecs ${vecs}`], "chunks = passages = vectors");
 check(arts.flatMap((a) => (a.related || []).filter((r) => !ids.has(r.id) || r.id === a.id).map((r) => a.id + "->" + r.id)), "related ids resolve (not self)");
 check(Object.keys(issues).filter((k) => !arts.some((a) => key(a) === k)), "every issue has articles");
+// R237: cover images <= 480 px wide and <= 60 KiB (reads the JPEG SOF / WebP VP8 header)
+const idir = path.resolve(dir, "../issues"), wid = (b) => { if (b.toString("latin1", 8, 12) === "WEBP") return b.readUInt16LE(26) & 0x3fff; for (let i = 2; i < b.length - 9; ) { if (b[i] !== 0xff) { i++; continue; } const m = b[i + 1]; if (m >= 0xc0 && m <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(m)) return b.readUInt16BE(i + 7); i += 2 + b.readUInt16BE(i + 2); } return 0; };
+check(fs.readdirSync(idir).filter((f) => /\.(jpe?g|webp)$/.test(f)).flatMap((f) => { const b = fs.readFileSync(path.join(idir, f)); return b.length > 61440 || wid(b) > 480 ? [`${f} ${b.length}B ${wid(b)}px`] : []; }), "cover images <= 480 px and <= 60 KiB");
 console.log(`${n} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { searchArticles } from "./engine.js";
 import { pref, allow, useDialog } from "./consent.js";
 import { suggest } from "./suggest.js";
-import { AdvIntro, EMPTY, Icon, Link, Pub, Card, AddBtn, ViewToggle, ResultIssues, issueKey } from "./App.jsx";
+import { AdvIntro, BADGE_C, BADGE_N, EMPTY, Icon, Link, Pub, Card, AddBtn, ViewToggle, ResultIssues, issueKey } from "./App.jsx";
 
 // ---- the query (four areas of filter chips), shared with the Maps page and kept in localStorage ----
 export const AREAS = [
@@ -142,8 +142,8 @@ function Fit({ a, areas }) {
 // The chips this result matched, in the order the score weighs them (Boost high > low, then words).
 function Why({ a }) {
   const hits = a.why.filter((w) => !w.startsWith("Words relevance"));
-  return <>{(hits.length > 0 || a.npass > 0) && <p aria-label="Matched filters" data-matched className="flex flex-wrap gap-1 px-3 pt-2 text-2xs">{hits.slice(0, 4).map((w) => <span key={w} className="rounded-full bg-navy-soft px-2 py-0.5 text-navy">{w.replace(/ \(#\d+\)/, "")}</span>)}{hits.length > 4 && <span className="py-0.5 text-ink-3">+{hits.length - 4} more</span>}
-    {a.npass > 0 && <span className="rounded-full bg-crimson-soft px-2 py-0.5 text-link">{a.npass} matched passage{a.npass === 1 ? "" : "s"}</span>}</p>}</>;
+  return <>{(hits.length > 0 || a.npass > 0) && <p aria-label="Matched filters" data-matched className="flex flex-wrap gap-1 px-3 pt-2 text-2xs">{hits.slice(0, 4).map((w) => <span key={w} className={BADGE_N}>{w.replace(/ \(#\d+\)/, "")}</span>)}{hits.length > 4 && <span className="py-0.5 text-ink-3">+{hits.length - 4} more</span>}
+    {a.npass > 0 && <span className={BADGE_C}>{a.npass} matched passage{a.npass === 1 ? "" : "s"}</span>}</p>}</>;
 }
 const dragData = (c) => (e) => { e.dataTransfer.setData("text/chip", JSON.stringify(c)); e.dataTransfer.effectAllowed = "copyMove"; };
 const kindTag = (k) => <span className="mr-1.5 text-2xs font-bold uppercase tracking-wide opacity-60">{KIND[k]}</span>;
@@ -209,7 +209,7 @@ function Lookup({ F, area, close }) {
           <button type="button" onClick={close} className="min-h-10 rounded-md bg-action-fill px-4 font-bold text-white">Done</button></div>
         <div className="flex flex-wrap gap-2 px-4 pt-3" role="tablist">{Object.keys(F).map((x) => <button key={x} type="button" role="tab" aria-selected={k === x} onClick={() => setK(x)} className={`min-h-10 rounded-full border px-4 text-sm capitalize ${k === x ? "border-action bg-action-fill text-white" : "border-line text-ink-2 hover:border-action-2"}`}>{x === "issue" ? "Issue" : x === "category" ? "Category" : x}</button>)}</div>
         <div className="px-4 pt-3"><input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Filter ${k} values`} aria-label="Filter values" className="w-full rounded-md border border-line px-3 py-2 text-base" /></div>
-        <ul className="mt-2 flex-1 overflow-y-auto p-2">{list.map((f) => { const at = inArea(f); return <li key={f.v} draggable onDragStart={(e) => { dragData({ k, v: f.v, l: f.l })(e); setTimeout(() => setDrag(true), 0); }} onDragEnd={() => setDrag(false)}><button type="button" onClick={() => addChip(to, { k, v: f.v, l: f.l })} className="flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left hover:bg-navy-soft"><span className="line-clamp-1">{f.l}</span>{at && <span className="rounded-full bg-crimson-soft px-2 text-xs text-link">{at}</span>}<span className="ml-auto text-xs text-ink-3">{f.c}</span></button></li>; })}
+        <ul className="mt-2 flex-1 overflow-y-auto p-2">{list.map((f) => { const at = inArea(f); return <li key={f.v} draggable onDragStart={(e) => { dragData({ k, v: f.v, l: f.l })(e); setTimeout(() => setDrag(true), 0); }} onDragEnd={() => setDrag(false)}><button type="button" onClick={() => addChip(to, { k, v: f.v, l: f.l })} className="flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left hover:bg-navy-soft"><span className="line-clamp-1">{f.l}</span>{at && <span className={BADGE_C}>{at}</span>}<span className="ml-auto text-xs text-ink-3">{f.c}</span></button></li>; })}
           {list.length === 0 && <li className="p-4 text-center text-ink-3">Nothing matches.</li>}</ul>
       </div>
     </div>, document.body);
@@ -322,7 +322,7 @@ export function Advanced({ share }) {
           <h2 className="text-xs font-bold uppercase tracking-wide text-ink-3">Preview of suggestions</h2>
           <p className="mt-1 text-xs text-ink-3">Not in your results, but a good fit. Each shows the suggestions it matches: click one to add it to Expand, use ＋ to pick any area, or drag it.</p>
           {preview.length === 0 && <p className="mt-3 rounded-md border border-dashed border-line p-3 text-xs text-ink-3">No suggestions yet. Add a filter or a boost and good fits outside your results will appear here.</p>}
-          <ul className="mt-3 space-y-3">{preview.map(({ a, m, n }) => <li key={a.id} draggable onDragStart={dragData({ k: "pub", v: a.id, l: a.title })} className="border-t border-line pt-3 first:border-0 first:pt-0"><Link to={"/read/" + a.id} className="font-serif leading-snug text-link hover:underline">{a.title}</Link><p className="mt-0.5 text-xs text-ink-3">{a.authors[0]}{a.authors.length > 1 ? " et al." : ""} · {a.year}</p><div className="mt-1 flex items-center gap-2"><span className="inline-block rounded-full bg-navy-soft px-2 py-0.5 text-xs">{n} of the suggestions</span><AddBtn id={a.id} label className="ml-auto" /></div>
+          <ul className="mt-3 space-y-3">{preview.map(({ a, m, n }) => <li key={a.id} draggable onDragStart={dragData({ k: "pub", v: a.id, l: a.title })} className="border-t border-line pt-3 first:border-0 first:pt-0"><Link to={"/read/" + a.id} className="font-serif leading-snug text-link hover:underline">{a.title}</Link><p className="mt-0.5 text-xs text-ink-3">{a.authors[0]}{a.authors.length > 1 ? " et al." : ""} · {a.year}</p><div className="mt-1 flex items-center gap-2"><span className={BADGE_N + " inline-block"}>{n} of the suggestions</span><AddBtn id={a.id} label className="ml-auto" /></div>
             <div className="mt-1.5 flex flex-wrap gap-1.5">{m.map((x) => { const c = { k: x.k, v: x.v, l: x.l }; return <span key={x.k + x.v} draggable onDragStart={dragData(c)} className="inline-flex max-w-full items-center rounded-full border border-dashed border-action-2/50 bg-surface py-0.5 pl-2.5 pr-0.5 text-xs"><button type="button" onClick={() => addChip("exp", c)} title="Add to Expand" className="line-clamp-1 min-h-7 text-left">{x.l}</button>
               <select aria-label={`Add ${x.l} to…`} value="" onChange={(e) => addChip(e.target.value, c)} title="Add to…" className="h-7 w-7 cursor-pointer appearance-none rounded-full bg-transparent text-center text-ink-3 hover:bg-navy-soft"><option value="" disabled hidden>＋</option>{AREAS.map(([k, nm]) => <option key={k} value={k}>{nm}</option>)}</select></span>; })}</div></li>)}</ul>
         </aside>

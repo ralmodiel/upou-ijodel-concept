@@ -142,7 +142,7 @@ export function Maps({ kind = "pub", id }) {
   useEffect(() => { if (!th) return; const k = (e) => { if (e.key === "Escape" && !document.fullscreenElement) setTh(false); }; addEventListener("keydown", k); return () => removeEventListener("keydown", k); }, [th]); // theater mode: Esc leaves it
   const toggleFs = () => { if (document.fullscreenElement) document.exitFullscreen(); else panel.current?.requestFullscreen?.(); };
   const [find, setFind] = useState(""), [found, setFound] = useState(""), [low, setLow] = useState(() => matchMedia("(prefers-reduced-motion: reduce)").matches || (navigator.hardwareConcurrency || 8) <= 4 || weakDevice());
-  const [sel, setSel] = useState(null), [hov, setHov] = useState(null), [view, setView] = useState({ x: 0, y: 0, k: 1 }), [text, setText] = useState("");
+  const [sel, setSel] = useState(null), [hov, setHov] = useState(null), [view, setView] = useState({ x: 0, y: 0, k: 1 }), [text, setText] = useState(""), [nf, setNf] = useState("");
   const g = useMemo(() => build(kind, seedId, on), [kind, seedId, on]);
   const solo = (n) => n.kind === "tag" && n.n < 2 && n.id !== g?.seed; // a topic with one chapter is drawn but not clickable
   // Circuit (the logo's circuit board) is the default in 2D and 3D; Force only exists in 3D
@@ -278,7 +278,8 @@ export function Maps({ kind = "pub", id }) {
             </div>}
           </div>
           {lay && <details className="rounded-xl border border-line bg-surface p-4 text-sm"><summary className="flex min-h-10 cursor-pointer items-center font-medium text-link">Node list (text version of the map)</summary>
-            <ul aria-label="Nodes and their connections" className="mt-2 max-h-80 space-y-2 overflow-y-auto">{lay.nodes.map((n) => { const ls = (adj.get(n.id) || []).map((e) => e[1]);
+            <input type="search" value={nf} onChange={(e) => setNf(e.target.value)} placeholder="Filter the node list" aria-label="Filter the node list" className="mt-2 min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base" />
+            <ul aria-label="Nodes and their connections" className="mt-2 max-h-80 space-y-2 overflow-y-auto">{lay.nodes.filter((n) => !nf.trim() || n.label.toLowerCase().includes(nf.trim().toLowerCase())).map((n) => { const ls = (adj.get(n.id) || []).map((e) => e[1]);
               return <li key={n.id}>{solo(n) ? <span className="font-medium text-ink-2">{KIND_LABEL[n.kind]}: {trunc(n.label, 60)}</span> : <button type="button" aria-pressed={n.id === sel} onClick={() => setSel(n.id)} className="text-left font-medium text-link hover:underline">{KIND_LABEL[n.kind]}: {trunc(n.label, 60)}{n.id === g.seed ? " (seed)" : ""}</button>}{n.kind === "pub" && <AddBtn id={n.ref} className="!h-8 !w-8 !text-base ml-2 align-middle" />}
                 <p className="text-xs text-ink-3">{ls.length} link{ls.length === 1 ? "" : "s"}: {ls.slice(0, 5).map((l) => `${l.rel || "linked"} ${trunc((l.source === n ? l.target : l.source).label, 30)}`).join("; ")}{ls.length > 5 ? "; …" : ""}</p></li>; })}</ul></details>}
           <div className="rounded-xl border border-line bg-surface p-4">

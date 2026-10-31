@@ -4,6 +4,10 @@ import { homedir } from "os";
 const b = await chromium.launch({ executablePath: `${homedir()}/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`, args: ["--no-sandbox", "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 const ctx = await b.newContext({ viewport: { width: 1400, height: 1500 } });
 await ctx.addInitScript(() => { try { if (!localStorage.getItem("ijodel-consent")) localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: true })); } catch {} });
+// R238/R239: collect securitypolicyviolation events for the whole run; the preview server sends no headers, so the document gets the Trusted Types report-only policy from _headers
+const viol = []; await ctx.exposeFunction("__viol", (d, s, u) => viol.push([d, s, u]));
+await ctx.addInitScript(() => addEventListener("securitypolicyviolation", (e) => window.__viol?.(e.effectiveDirective, e.sample, e.blockedURI)));
+await ctx.route((u) => !/\.(js|css|json|bin|png|jpg|webp|svg|woff2?|onnx|wasm)(\?|$)/.test(u.pathname), async (r) => { if (r.request().resourceType() !== "document") return r.fallback(); const x = await r.fetch(); await r.fulfill({ response: x, headers: { ...x.headers(), "content-security-policy-report-only": "require-trusted-types-for 'script'" } }); });
 const p = await ctx.newPage();
 const errs = []; p.on("pageerror", (e) => errs.push(e.message));
 const csp = []; p.on("console", (m) => /Content Security Policy/i.test(m.text()) && csp.push(m.text()));
@@ -518,6 +522,36 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
   await o.goto(U + "/search/libre"); await o.waitForSelector("text=chapters for"); await o.waitForTimeout(600); await o.evaluate(() => scrollTo(0, 2500)); await o.waitForTimeout(400);
   const btn = o.getByRole("button", { name: "Back to top" }), shown = await btn.isVisible(); if (shown) { await btn.focus(); await o.keyboard.press("Enter"); await o.waitForTimeout(400); }
   ok("R225 Back to top shows after 2500 px; Enter -> scrollY 0, focus on main", shown && await o.evaluate(() => scrollY === 0 && document.activeElement?.id === "main")); await cx.close(); }
+{ const cx = await b.newContext({ viewport: { width: 1400, height: 1500 } }); await cx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); } catch {} }); const o = await cx.newPage(); // R230/R234 map counts and node-list filter (fresh context)
+  const seeds = []; for (const id of ["295", "3", "10", "20"]) { await o.goto(U + "/maps/pub/" + id); await o.waitForSelector("svg g[data-node]"); await o.waitForTimeout(400);
+    const m = /(\d+) nodes · (\d+) links/.exec(await o.locator("span.ml-auto").first().innerText()), dom = await o.locator("svg g[data-node]").count(), li = await o.locator("ul[aria-label='Nodes and their connections'] > li").count(); seeds.push(m && +m[1] === dom && dom === li); }
+  ok("R230 map 'N nodes' equals DOM nodes and node-list items for 4 seeds", seeds.every(Boolean), seeds.join());
+  const nl = o.getByRole("list", { name: "Nodes and their connections" }); await o.locator("summary", { hasText: "Node list" }).click(); const all = await nl.locator("> li").count(); await o.getByLabel("Filter the node list").fill("learn"); await o.waitForTimeout(200);
+  const n = await nl.locator("> li").count(), want = await o.locator("svg g[data-node]").evaluateAll((l) => l.filter((g) => g.getAttribute("aria-label").toLowerCase().includes("learn")).length); // list text is cut at 60 chars, the full label is on the map node
+  ok("R234 node-list filter keeps exactly the nodes whose label contains the text", n > 0 && n < all && n === want, `${n}/${all}, map says ${want}`); await cx.close(); }
+{ const cx = await b.newContext({ viewport: { width: 1400, height: 1000 } }); await cx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); } catch {} }); const o = await cx.newPage(); // R235 issue prev/next
+  await o.goto(U + "/"); await o.waitForSelector("h1"); const ks = await o.evaluate(() => Object.keys(window.__S.issues).sort((x, y) => x.localeCompare(y, "en", { numeric: true }))), res = [];
+  for (const k of [ks[0], ks[3], ks.at(-1)]) { await o.goto(U + "/issue/" + k); await o.waitForSelector("h1"); await o.waitForTimeout(200); res.push([await o.locator("a[rel=prev]").count(), await o.locator("a[rel=next]").count()].join("")); }
+  ok("R235 issue pages: next only at the start, both in the middle, prev only at the end", res.join() === "01,11,10", res.join());
+  // R232 cover/issue images: alt text longer than 3 chars, no duplicates on a page
+  const alts = []; for (const u of ["/", "/issues", "/search/learning"]) { await o.goto(U + u); await o.waitForSelector("h1, h2"); await o.waitForTimeout(500); const a = await o.locator("img").evaluateAll((l) => l.map((i) => i.alt).filter((t) => t)), bad = await o.locator("img:not([alt])").count(); alts.push(a.every((t) => t.length > 3) && new Set(a).size === a.length && bad === 0); }
+  ok("R232 images have alt > 3 chars, unique per page", alts.every(Boolean), alts.join()); await cx.close(); }
+{ const cx = await b.newContext({ viewport: { width: 1400, height: 1000 } }); await cx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); window.__ls = 0; const o = EventTarget.prototype.addEventListener; EventTarget.prototype.addEventListener = function (t, ...r) { if (t === "scroll") window.__ls++; return o.call(this, t, ...r); }; } catch {} }); const o = await cx.newPage(); // R236
+  await o.goto(U + "/"); await o.waitForSelector("ul.row-track"); await o.waitForTimeout(1500); const ls = await o.evaluate(() => window.__ls), rows = await o.locator("ul.row-track").count();
+  ok("R236 / has <= 3 scroll listeners across all rows (React root + window x2; none per row)", rows >= 3 && ls <= 3, `${ls} listeners, ${rows} rows`);
+  const nx = o.getByRole("button", { name: /^Next in/ }).first(); const had = await nx.isVisible(); await nx.click(); await o.waitForTimeout(900);
+  ok("R236 row arrows still follow the scroll position (Previous appears after Next)", had && await o.getByRole("button", { name: /^Previous in/ }).first().isVisible()); await cx.close(); }
+{ const cx = await b.newContext({ viewport: { width: 700, height: 500 } }); const o = await cx.newPage(); // carry-over: Back to top is not under the bottom cookie banner at 640-860 px
+  await o.goto(U + "/search/libre"); await o.waitForSelector("text=chapters for"); await o.waitForTimeout(600); await o.evaluate(() => scrollTo(0, 2500)); await o.waitForTimeout(500);
+  const hit = await o.evaluate(() => { const t = document.querySelector('button[aria-label="Back to top"]'); if (!t) return "none"; const r = t.getBoundingClientRect(), e = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return t === e || t.contains(e) ? "top" : "covered"; });
+  ok("carry-over: Back to top is not covered by the cookie banner at 700 px", hit === "top", hit);
+  await o.goto(U + "/issue/" + (await o.evaluate(() => Object.keys(window.__S.issues)[0]))); await o.waitForSelector("ol[aria-label=Contents] a");
+  ok("carry-over: contents-list links are underlined", await o.locator("ol[aria-label=Contents] > li > a").first().evaluate((a) => getComputedStyle(a).textDecorationLine === "underline")); await cx.close(); }
+// R238/R239: Trusted Types report-only sinks are the documented ones; any other CSP violation fails
+{ const tt = viol.filter((v) => v[0] === "require-trusted-types-for"), other = viol.filter((v) => v[0] !== "require-trusted-types-for"), sinks = [...new Set(tt.map((v) => v[1]?.split(/[|\n]/)[0].slice(0, 40)))];
+  console.log(`TT report-only: ${tt.length} events; sinks: ${sinks.join(" ; ")}`);
+  ok("R238 Trusted Types violations stay within the recorded baseline and documented sinks", tt.length <= 2 && sinks.every((s) => ["ServiceWorkerContainer register", "Worker constructor"].includes(s)) /* baseline 2026-10-31: SW register + embedding Worker URL */, `${tt.length}`);
+  ok("R239 no non-Trusted-Types CSP violation during the run", other.length === 0, other.slice(0, 2).map((v) => v.join(" ")).join(" | ")); }
 ok("no page errors (rounds 38-46)", errs.length === 0, errs.slice(0, 2).join(" | "));
 ok("no CSP violations by the end (model load included)", !csp.length, csp[0]?.slice(0, 120) ?? "");
 await b.close(); process.exit(bad ? 1 : 0);

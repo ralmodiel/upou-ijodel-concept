@@ -7,7 +7,7 @@ const b = await chromium.launch({ executablePath: `${homedir()}/.cache/ms-playwr
 let n = 0, bad = 0; const ok = (m, c, x = "") => { n++; if (!c) { bad++; console.log(`FAIL ${m} ${x}`); } };
 const big = "a".repeat(200000), ids = Array.from({ length: 5000 }, (_, i) => i).join(",");
 const HASH = ["/%", "/%E0%A4%A", "/search/%ZZ%", "/search/" + big, "/search/%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E", "/search/author:%22", "/search/year:9999-1", "/search/-", "/search/\"\"\"",
-  "/read/__proto__", "/read/constructor", "/read/3/p/999999/%ZZ", "/read/3/p/-1/x", "/read/../../etc/passwd", "/maps/pub/__proto__", "/maps/tag/%", "/maps/x/y/z", "/maps/pub/" + big.slice(0, 5000),
+  "/read/__proto__", "/read/constructor", "/read/3/p/999999/%ZZ", "/read/3/p/-1/x", "/read/3/sec/zzz", "/read/3/sec/%ZZ", "/read/3/sec/__proto__", "/read/3/sec/" + big.slice(0, 5000),"/read/../../etc/passwd", "/maps/pub/__proto__", "/maps/tag/%", "/maps/x/y/z", "/maps/pub/" + big.slice(0, 5000),
   "/list/share/x/" + ids, "/list/share/%/%", "/list/share/" + big.slice(0, 3000) + "/3", "/list/__proto__", "/advanced/" + big.slice(0, 2000), "/advanced?s=%7B%22req%22%3A1%7D", "/cat/%", "/tag/__proto__", "/year/-1e309", "/issue/0.0", "/" + "/".repeat(500), "/ /\u0000/\uD800"];
 const BAD = ['{"__proto__":{"x":1}}', "null", "1", '"str"', "[[[[]]]]", "{", big, '{"req":[{"k":"tag","v":{"a":1}}],"boost":5}', '[{"name":1,"ids":"x"}]', '[null,{"name":"' + big.slice(0, 1000) + '"}]'];
 const KEYS = ["ijodel-lists", "ijodel-list", "ijodel-adv", "ijodel-adv-mode", "ijodel-recent", "ijodel-saved", "ijodel-cite", "ijodel-tour", "ijodel-map-seed", "ijodel-text", "ijodel-consent"];
