@@ -23,7 +23,7 @@ const htmls = [path.join(dist, "index.html"), ...reads.map((d) => path.join(dist
 let ld = 0, ldBad = 0, brand = 0, dead = [];
 for (const f of htmls) {
   const s = fs.readFileSync(f, "utf8");
-  for (const m of s.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) { ld++; try { JSON.parse(m[1]); } catch { ldBad++; } }
+  for (const m of s.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) { ld++; try { JSON.parse(m[1]); if (m[1].includes("<")) ldBad++; /* R179: a raw "<" could close the script tag */ } catch { ldBad++; } }
   if (s.includes("ojs_brand")) brand++;
   for (const [, u] of s.matchAll(/(?:src|href)="([^"#?]+)"/g)) if (!/^[a-z]+:/.test(u) && !u.endsWith("/") && !fs.existsSync(path.resolve(path.dirname(f), u))) dead.push(path.relative(dist, f) + " -> " + u);
 }

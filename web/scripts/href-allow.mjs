@@ -9,7 +9,7 @@ const hosts = new Set([...A.map((a) => { try { return new URL(a.url).host; } cat
 const routes = ["/", "/search/libre", "/advanced", "/maps", "/read/295", "/issues", "/topics", "/about"];
 const b = await chromium.launch({ executablePath: `${homedir()}/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`, args: ["--no-sandbox"] });
 const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
-await ctx.addInitScript(() => localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })));
+await ctx.addInitScript(() => localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false, counter: true })));
 const p = await ctx.newPage(); let n = 0, links = 0, bad = 0;
 for (const r of routes) {
   await p.goto("http://localhost:4173/#" + r); await p.waitForSelector("h1"); await p.waitForTimeout(600);
@@ -18,5 +18,7 @@ for (const r of routes) {
     if (!ok && /^https:\/\//i.test(h)) try { ok = hosts.has(new URL(h).host); } catch { /* bad URL */ }
     if (!ok) { bad++; console.log(`FAIL ${r} ${h.slice(0, 100)}`); }
   }
+  // R178: target=_blank anchors need noopener noreferrer; images from another origin need referrerpolicy
+  for (const x of await p.evaluate(() => [...document.querySelectorAll("a[target=_blank]")].filter((a) => !/\bnoopener\b/.test(a.rel) || !/\bnoreferrer\b/.test(a.rel)).map((a) => a.href).concat([...document.querySelectorAll("img[src^='http']")].filter((i) => new URL(i.src).origin !== location.origin && !i.referrerPolicy).map((i) => "img " + i.src)))) { n++; bad++; console.log(`FAIL ${r} rel/referrerpolicy ${x.slice(0, 100)}`); }
 }
 await b.close(); console.log(`${n} checks, ${bad} FAIL (${routes.length} routes, ${links} anchors, ${hosts.size} hosts)`); process.exit(bad ? 1 : 0);

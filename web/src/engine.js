@@ -10,19 +10,18 @@ const LATE = ["one", "two"];
 let S, embedder;
 
 const index = (docs) => {
-  const df = new Map(), rows = docs.map((t) => {
+  const df = new Map(), post = new Map(), rows = docs.map((t, i) => {
     const w = tok(t), tf = new Map();
     w.forEach((x) => tf.set(x, (tf.get(x) || 0) + 1));
-    tf.forEach((_, x) => df.set(x, (df.get(x) || 0) + 1));
+    tf.forEach((_, x) => { df.set(x, (df.get(x) || 0) + 1); (post.get(x) || post.set(x, []).get(x)).push(i); });
     return { tf, len: w.length };
   });
-  return { df, rows, avg: rows.reduce((a, r) => a + r.len, 0) / rows.length || 1 };
+  return { df, post, rows, avg: rows.reduce((a, r) => a + r.len, 0) / rows.length || 1 };
 };
-const bm25 = ({ df, rows, avg }, qt) => rows.map(({ tf, len }) => qt.reduce((s, w) => {
-  const f = tf.get(w); if (!f) return s;
-  const n = df.get(w);
-  return s + Math.log(1 + (rows.length - n + 0.5) / (n + 0.5)) * f * 2.2 / (f + 1.2 * (0.25 + 0.75 * len / avg));
-}, 0));
+// postings per term: only rows containing a query word are touched (same per-row sum order as before, so scores are identical)
+const bm25 = ({ df, post, rows, avg }, qt) => { const out = new Array(rows.length).fill(0);
+  for (const w of qt) { const n = df.get(w); if (!n) continue; const idf = Math.log(1 + (rows.length - n + 0.5) / (n + 0.5)); for (const i of post.get(w)) { const { tf, len } = rows[i], f = tf.get(w); out[i] += idf * f * 2.2 / (f + 1.2 * (0.25 + 0.75 * len / avg)); } }
+  return out; };
 // shortcut: the worker file sits one folder below the site root (dist/assets/, dev src/); change if assetsDir gets nested
 const ROOT = globalThis.WorkerGlobalScope ? new URL("../", self.location).href : import.meta.env?.BASE_URL ?? "/";
 const j = (f) => fetch(ROOT + "index/" + f).then((r) => r.json());
@@ -134,7 +133,7 @@ export async function search0(q, { year, k = 20, fields } = {}) {
   // Authors: a 3+ letter query word equal to (full boost) or starting (partial) a name token counts.
   if (!fields || fields.includes("title")) {
     const ws = qt.filter((w) => w.length >= 3);
-    S.articles.forEach((a, i) => { const au = tok(a.authors.join(" ")); const h = ws.reduce((s, w) => s + (au.includes(w) ? 12 : au.some((t) => t.startsWith(w)) ? 5 : 0), 0); if (h) { total[i] += h; where[i].unshift("author"); } });
+    const AU = (S.authTok ||= S.articles.map((a) => tok(a.authors.join(" ")))); S.articles.forEach((a, i) => { const au = AU[i]; const h = ws.reduce((s, w) => s + (au.includes(w) ? 12 : au.some((t) => t.startsWith(w)) ? 5 : 0), 0); if (h) { total[i] += h; where[i].unshift("author"); } });
   }
   const lists = [top(total)], weights = [1];
   let qv = null;

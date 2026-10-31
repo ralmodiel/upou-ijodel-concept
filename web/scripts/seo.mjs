@@ -14,7 +14,7 @@ const head = (title, desc, url) => [`<title>${esc(title)}</title>`, m("descripti
 export const homeTags = () => [...["articles", "chunks", "issues"].map((f) => `<link rel="preload" as="fetch" href="./index/${f}.json" crossorigin>`), m("description", DESC), `<link rel="canonical" href="${SITE}/">`, m("theme-color", "#0b2a4a"),
   m("og:type", "website", "property"), m("og:site_name", "IJODeL", "property"), m("og:title", `IJODeL — ${NAME}`, "property"), m("og:description", DESC, "property"), m("og:url", SITE + "/", "property"),
   m("twitter:card", "summary_large_image"), IMG(), m("twitter:title", "IJODeL"), m("twitter:description", DESC),
-  `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "WebSite", name: "IJODeL", url: SITE + "/", potentialAction: { "@type": "SearchAction", target: `${SITE}/#/search/{search_term_string}`, "query-input": "required name=search_term_string" } })}</script>`].join("\n");
+  `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "WebSite", name: "IJODeL", url: SITE + "/", potentialAction: { "@type": "SearchAction", target: `${SITE}/#/search/{search_term_string}`, "query-input": "required name=search_term_string" } }).replace(/</g, "\\u003c")}</script>`].join("\n");
 
 export function seoPlugin() {
   return {
