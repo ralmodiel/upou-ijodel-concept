@@ -14,4 +14,7 @@ const named = (k) => priv.includes(k) || (words[k] && priv.includes(words[k].rep
 let n = 0, bad = 0; const f = (m) => { bad++; console.log("FAIL " + m); };
 for (const k of code) { n++; if (!audit.has(k)) f(`${k} used in src, missing from consent-audit`); n++; if (!named(k) && !NEC.includes(k)) f(`${k} not named in the Privacy text`); }
 for (const k of audit) { n++; if (!code.has(k) && !NEC.includes(k) && !SES.includes(k)) f(`${k} in consent-audit but never used in src`); n++; if (!named(k)) f(`${k} (audit) not named in the Privacy text`); }
+// R288: no HTML sinks in src (Graph3D only ever clears innerHTML with "")
+{ const fs = await import("node:fs"), d = new URL("../src/", import.meta.url);
+  for (const fn of fs.readdirSync(d)) { n++; if (/dangerouslySetInnerHTML|\.innerHTML\s*\+?=(?!\s*"")|insertAdjacentHTML|document\.write/.test(fs.readFileSync(new URL(fn, d), "utf8"))) f(`${fn} uses an HTML sink`); } }
 console.log(`${n} checks, ${bad} FAIL (${code.size} keys in src, ${audit.size} in audit)`); process.exit(bad ? 1 : 0);

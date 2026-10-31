@@ -57,7 +57,9 @@ for (const [route, bud] of Object.entries(B)) {
   let m = await go(); if (!m.lcp) { bytes = 0; m = await go(); }; // INP: tap the "Topics" tab (a real in-app route change) and read the longest event duration
   await p.locator('nav[aria-label=Main] a', { hasText: "Topics" }).tap().catch(() => {}); await p.waitForTimeout(1500); m.inp = await p.evaluate(() => window.__m.inp);
   const mb = await heap(), kb = Math.round(bytes / 1024); if (m.shifts) shifts.push(route + ": " + m.shifts.join(" | "));
-  const over = [m.inp > 500 && "INP", m.lcp > bud.lcp && "LCP", m.cls > bud.cls && "CLS", m.tbt > bud.tbt && "TBT", kb > bud.kb && "KB"].filter(Boolean);
+  // R286/R287: the home route fetches <= 3 JS files (entry + vendor chunks, no lazy ones) and <= 8 images
+  const rs = route === "/" ? await p.evaluate(() => { const n = performance.getEntriesByType("resource").map((e) => e.name.split("?")[0]); return { js: n.filter((u) => /\.js$/.test(u)).length, img: n.filter((u) => /\.(png|jpe?g|webp|gif|svg)$/.test(u)).length }; }) : { js: 0, img: 0 };
+  const over = [rs.js > 3 && "JS-files", rs.img > 8 && "IMG-files", m.inp > 500 && "INP", m.lcp > bud.lcp && "LCP", m.cls > bud.cls && "CLS", m.tbt > bud.tbt && "TBT", kb > bud.kb && "KB"].filter(Boolean);
   if (over.length) bad++;
   rows.push(`${route.padEnd(15)} LCP ${String(Math.round(m.lcp)).padStart(5)} ms  CLS ${m.cls.toFixed(3)}  long-task ${String(Math.round(m.tbt)).padStart(5)} ms  INP ${String(Math.round(m.inp)).padStart(4)} ms  field ${m.lcp <= FIELD.lcp && m.inp <= FIELD.inp && m.cls <= FIELD.cls ? "met" : "miss"}  ${String(kb).padStart(5)} KB  heap ${mb.toFixed(1).padStart(5)} MB  ${over.length ? "OVER " + over.join(",") : "ok"}  [${m.el}]`);
   await ctx.close();

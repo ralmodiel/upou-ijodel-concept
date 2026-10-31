@@ -634,7 +634,7 @@ function Search({ q0 }) {
     <section className="-mx-4 overflow-hidden sm:mx-0 sm:rounded-xl">
       <div className="bg-navy-fill px-4 pb-6 pt-8 text-white sm:px-8">
         <h1 className="font-serif text-3xl">Search</h1>
-        <p className="mt-1 text-white/75">Search all {all.length} chapters; matches in a title count most, then the abstract, then the paper’s content. Best passages appear only when “Full content” is searched.</p>
+        <p className="mt-1 text-white/75">Search all {all.length} chapters; matches in a title count most, then the abstract, then the chapter’s content. Best passages appear only when “Full content” is searched.</p>
         <SearchBox value={q} onChange={setQ} placeholder="Keywords or a question, e.g. micro-credentials" className="mt-4" btn="bg-action-2-fill hover:bg-action-fill" />
         <a href="#count" onClick={(e) => { e.preventDefault(); document.getElementById("count")?.focus(); }} className="skip">Skip to results</a>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm"><span className="text-white/70">Search in:</span>

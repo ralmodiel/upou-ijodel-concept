@@ -409,6 +409,8 @@ await ctx.setOffline(true); await wait(300); ok("offline message", await p.getBy
   ok("68 clear shows an Undo toast; History lists steps and jumps back", toast === 1 && undone && items >= 2 && (await adv()).req.length === 0, `items ${items}`); }
 await p.goto(U + "/maps/pub/295"); await p.waitForSelector("svg g[data-node]"); await wait(400);
 { ok("71 circuit traces have bend dots", await p.locator("svg circle[aria-hidden=true]").count() > 0);
+  { const sk = p.getByRole("link", { name: "Skip the map, go to the node list" }); await sk.focus(); await p.keyboard.press("Enter"); await wait(100); // R284
+    ok("R284 skip link opens the node list and focuses its summary", await p.evaluate(() => { const d = document.getElementById("map-nodelist"), r = d.open && document.activeElement.tagName === "SUMMARY"; d.open = false; return r; })); }
   await p.locator("summary", { hasText: "Node list" }).click(); const nl = p.getByRole("list", { name: "Nodes and their connections" });
   ok("73 node list lists every node with its links", await nl.locator("> li").count() === await p.locator("svg g[data-node]").count() && /\d+ links?:/.test(await nl.locator("li p").first().innerText()));
   await nl.locator("li button[aria-pressed]").last().click(); await wait(300);

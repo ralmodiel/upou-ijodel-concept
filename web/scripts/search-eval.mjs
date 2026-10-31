@@ -60,6 +60,7 @@ async function run(label) {
   let h3 = 0;
   for (const [q, id] of TYPO) { let r = await E.searchArticles(q, { k: 3 }); if (!r.length) { const f = E.didYouMean(q); if (f) r = await E.searchArticles(f, { k: 3 }); } if (r.some((a) => a.id === id)) h3++; else miss.push(`${label}: typo ${q} -> want ${id}`); }
   for (const w of ["ann", "lee"]) { const a = (await E.searchArticles(w, { k: 1 }))[0]; if (!a || !(a.authors.join(" ").toLowerCase().match(/[a-z]+/g) || []).includes(w)) { miss.push(`${label}: author ${w} not exact-name first`); h3 = 0; } } // round 121
+  for (const [, ex] of fs.readFileSync(path.resolve(import.meta.dirname, "../src/App.jsx"), "utf8").matchAll(/placeholder="[^"]*e\.g\. ([^"]+)"/g)) if (!(await E.searchArticles(ex, { k: 1 })).length) { miss.push(`${label}: placeholder example "${ex}" returns nothing`); h3 = 0; } // R285
   let ha = 0;
   for (const [q, id] of ACR) { if ((await E.searchArticles(q, { k: 5 })).some((a) => a.id === id)) ha++; else miss.push(`${label}: acronym ${q} -> want ${id}`); }
   console.log(`${label} transposition top3 ${(h3 / TYPO.length).toFixed(3)}, acronym top5 ${(ha / ACR.length).toFixed(3)}`);

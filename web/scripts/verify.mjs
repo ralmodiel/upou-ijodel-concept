@@ -13,6 +13,8 @@ const assets = fs.readdirSync(path.join(dist, "assets")).map((f) => path.join(di
 // R246: the h1 font (Merriweather 400 latin) is preloaded with crossorigin, same-origin, and the file exists
 { const h = fs.readFileSync(path.join(dist, "index.html"), "utf8"), m = h.match(/<link rel="preload" as="font" type="font\/woff2" href="\.\/(assets\/merriweather-latin-400-normal-[^"]+\.woff2)" crossorigin>/);
   check(!!m && fs.existsSync(path.join(dist, m[1])) && !/rel="preload"[^>]*href="https?:/.test(h), "index.html preloads the Merriweather 400 woff2 (crossorigin, local file)"); }
+// R283: the og:image file exists in dist and is a 1200x630 PNG (IHDR width/height at bytes 16-23)
+{ const f = path.join(dist, "img/social.png"), b = fs.existsSync(f) ? fs.readFileSync(f) : Buffer.alloc(24); check(b.readUInt32BE(16) === 1200 && b.readUInt32BE(20) === 630 && fs.readFileSync(path.join(dist, "index.html"), "utf8").includes('og:image'), "R283 og:image img/social.png is 1200x630 and index.html has og:image"); }
 const sum = (fs_) => Math.round(fs_.reduce((s, f) => s + gz(f), 0));
 for (const [name, files, max] of [
   ["entry JS", assets.filter((f) => /index-.*\.js$/.test(f)), 82],
@@ -25,6 +27,11 @@ for (const [name, files, max] of [
 const reads = fs.readdirSync(path.join(dist, "read")).filter((d) => fs.existsSync(path.join(dist, "read", d, "index.html")));
 const locs = (fs.readFileSync(path.join(dist, "sitemap.xml"), "utf8").match(/<loc>[^<]*\/read\/[^<]+<\/loc>/g) || []).length;
 check(reads.length > 0 && locs === reads.length, `sitemap read urls ${locs} = read pages ${reads.length}`);
+// R280/R281: every read page's title, authors, year, issue label equal articles.json; canonical equals its sitemap <loc>; sitemap = home + read pages only
+{ const arts = JSON.parse(fs.readFileSync(path.join(dist, "index/articles.json"), "utf8")), sm = fs.readFileSync(path.join(dist, "sitemap.xml"), "utf8"), locs2 = new Set([...sm.matchAll(/<loc>([^<]+)<\/loc>/g)].map((x) => x[1])), unesc = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&"), badP = [];
+  for (const a of arts) { const s = fs.readFileSync(path.join(dist, "read", String(a.id), "index.html"), "utf8"), can = s.match(/<link rel="canonical" href="([^"]+)"/)?.[1], ok = unesc(s.match(/<h1>([\s\S]*?)<\/h1>/)?.[1] ?? "") === a.title && unesc(s.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? "") === a.title + " | IJODeL" && unesc(s.match(/<\/h1>\s*<p>([\s\S]*?)<\/p>/)?.[1] ?? "") === (a.authors || []).join("; ") && s.includes(`name="citation_publication_date" content="${a.year}"`) && unesc(s.match(/<\/h1>\s*<p>[\s\S]*?<\/p>\s*<p>([\s\S]*?) · International Journal/)?.[1] ?? "") === String(a.issue?.label || a.year);
+    if (!ok || !locs2.has(can)) badP.push(a.id); }
+  check(!badP.length && locs2.size === arts.length + 1, `R280/R281 read-page meta equals articles.json and canonical is in the sitemap (${arts.length} pages, ${badP.length} bad, ${locs2.size} sitemap urls)`); }
 const htmls = [path.join(dist, "index.html"), ...reads.map((d) => path.join(dist, "read", d, "index.html"))];
 let ld = 0, ldBad = 0, brand = 0, dead = [];
 for (const f of htmls) {

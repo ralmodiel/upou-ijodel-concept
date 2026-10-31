@@ -44,4 +44,8 @@ const tagTo = new Function("return " + grab(app, /\(t\) => "\/tag\/" \+ encodeUR
 const vals = [...new Set([...arts.flatMap((a) => a.subjects), ...arts.flatMap((a) => a.authors), "a/b", "100%", "50%25", "q?x", "a#b", "r&d", "%E0%A4%A", " "])];
 check(vals.filter((v) => dec(tagTo(v).split("/").filter(Boolean)[1]) !== v), `${vals.length} tags/authors round-trip through /tag/<x>`);
 check(vals.filter((v) => dec(("/maps/author/" + encodeURIComponent(v)).split("/").filter(Boolean)[2]) !== v), `${vals.length} values round-trip through /maps/<kind>/<x>`);
+// R289: dec() never throws on 300 malformed percent-escapes / lone surrogates / very long strings
+{ const P = ["%", "%E0%A4%A", "%ZZ", "%C0%80", "%ED%A0%80", "\ud800", "%F8%88%80%80%80", "%u0041"], th = [];
+  for (let i = 0; i < 300; i++) { const s = P[i % P.length].repeat(1 + (i * 37) % 3000) + (i % 2 ? "%" : "x"); try { if (typeof dec(s) !== "string") th.push(i); } catch { th.push(i); } }
+  check(th, "R289 dec() on 300 malformed strings returns a string, never throws"); }
 console.log(`${n} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);

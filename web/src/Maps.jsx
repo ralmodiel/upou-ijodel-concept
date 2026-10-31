@@ -215,6 +215,7 @@ export function Maps({ kind = "pub", id }) {
           </div>
           <datalist id="seeds">{options.slice(0, 400).map(([l]) => <option key={l} value={l} />)}</datalist></div>
       </div>
+      {lay && <a href="#nodes" onClick={(e) => { e.preventDefault(); const d = document.getElementById("map-nodelist"); d.open = true; d.querySelector("summary").focus(); }} className="skip">Skip the map, go to the node list</a>}
       <div className={`mt-2 grid gap-4 sm:mt-4 grid-cols-[minmax(0,1fr)] ${th && !fs ? "" : "lg:grid-cols-[minmax(0,1fr)_20rem]"}`}>
         <div ref={panel} className={`overflow-hidden rounded-xl border border-line bg-surface ${fs ? "flex h-screen flex-col !rounded-none" : ""} ${th && !fs ? "relative !rounded-none" : ""}`} style={th && !fs ? { width: winW, marginLeft: thX } : undefined}>
           <div className="flex flex-wrap items-center gap-3 border-b border-line px-3 py-2 text-sm"><span className="text-ink-3">Layout</span>
@@ -278,7 +279,7 @@ export function Maps({ kind = "pub", id }) {
               <div className="mt-1 flex flex-wrap gap-1.5">{AREAS.flatMap(([k, n]) => k === "exp" ? [[k, n, "any"], [k, "Additional", "one"]] : [[k, n]]).map(([k, n, md]) => <button key={n} type="button" title={md === "one" ? "Expand, with results needing at least one of these" : undefined} onClick={() => { if (md) setAdvMode(md); addChip(k, chipOf(cur)); }} className="min-h-9 rounded-full bg-navy-soft px-3 text-navy hover:bg-sky">{n}</button>)}</div>
             </div>}
           </div>
-          {lay && <details className="rounded-xl border border-line bg-surface p-4 text-sm"><summary className="flex min-h-10 cursor-pointer items-center font-medium text-link">Node list (text version of the map)</summary>
+          {lay && <details id="map-nodelist" className="rounded-xl border border-line bg-surface p-4 text-sm"><summary className="flex min-h-10 cursor-pointer items-center font-medium text-link">Node list (text version of the map)</summary>
             <input type="search" value={nf} onChange={(e) => setNf(e.target.value)} placeholder="Filter the node list" aria-label="Filter the node list" className="mt-2 min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base" />
             <ul aria-label="Nodes and their connections" className="mt-2 max-h-80 space-y-2 overflow-y-auto">{lay.nodes.filter((n) => !nf.trim() || n.label.toLowerCase().includes(nf.trim().toLowerCase())).map((n) => { const ls = (adj.get(n.id) || []).map((e) => e[1]);
               return <li key={n.id}>{solo(n) ? <span className="font-medium text-ink-2">{KIND_LABEL[n.kind]}: {trunc(n.label, 60)}</span> : <button type="button" aria-pressed={n.id === sel} onClick={() => setSel(n.id)} className="text-left font-medium text-link hover:underline">{KIND_LABEL[n.kind]}: {trunc(n.label, 60)}{n.id === g.seed ? " (seed)" : ""}</button>}{n.kind === "pub" && <AddBtn id={n.ref} className="!h-8 !w-8 !text-base ml-2 align-middle" />}
