@@ -15,6 +15,9 @@ for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".jsx"))) if (/text
 for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".jsx"))) for (const m of src(f).match(/\brounded-(lg|2xl|3xl|sm)\b/g) || []) odd.push(f + " has " + m);
 // R233: badges come from BADGE_C / BADGE_N (App.jsx); no other soft-filled px-1.5/2/2.5 pill literals
 for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".jsx"))) for (const l of src(f).split("\n")) if (!l.includes("BADGE_C =") && /bg-(crimson|navy)-soft px-(1\.5|2|2\.5)\b/.test(l)) odd.push(f + " has a badge literal");
+// R243: tabular figures are global (index.css body); numbers are never formatted with a locale (one format: plain digits)
+if (!/body \{[^}]*tabular-nums/.test(fs.readFileSync(new URL("index.css", dir), "utf8"))) odd.push("index.css body lost tabular-nums");
+for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".jsx") || f.endsWith(".js"))) if (/toLocaleString|Intl\.NumberFormat/.test(src(f))) odd.push(f + " formats numbers with a locale");
 if (odd.length) console.log(`FAIL Icon stroke widths outside {1.5, 2} or empty states off the shared card: ${odd.join(", ")}`);
 if (!fs.existsSync(bf)) { fs.writeFileSync(bf, JSON.stringify({ arbitrary: n }) + "\n"); console.log(`baseline recorded: ${n} arbitrary values`); process.exit(0); }
 const base = JSON.parse(fs.readFileSync(bf, "utf8")).arbitrary;

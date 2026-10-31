@@ -329,6 +329,7 @@ await p.goto(U + "/no-such-page"); await p.waitForSelector("h1"); ok("404 route 
 await ctx.setOffline(true); await wait(300); ok("offline message", await p.getByText("You are offline.").count() === 1); await ctx.setOffline(false); await wait(300); ok("offline message clears", await p.getByText("You are offline.").count() === 0);
 { const e = await ctx.newPage(); await e.goto(U + "/"); await e.waitForSelector("text=Latest issues"); await e.evaluate(() => { window.__S.byId["295"] = { ...window.__S.byId["295"], authors: null }; location.hash = "/read/295"; });
   await e.getByRole("alert").filter({ hasText: "Something went wrong" }).waitFor({ timeout: 5000 }).catch(() => {}); ok("error boundary: a crashing route shows Retry, header stays", await e.getByRole("button", { name: "Retry" }).count() === 1 && await e.locator("header").count() === 1);
+  ok("R245 error boundary: the alert names the route and Retry has focus", /\/read\/295/.test(await e.getByRole("alert").filter({ hasText: "Something went wrong" }).innerText()) && await e.evaluate(() => document.activeElement?.textContent === "Retry"), await e.evaluate(() => document.activeElement?.tagName + ":" + document.activeElement?.textContent));
   await e.getByRole("link", { name: "Home" }).last().click(); ok("error boundary: another route recovers", await e.getByText("Latest issues").first().waitFor({ timeout: 5000 }).then(() => true, () => false)); await e.close(); }
 { const m = await b.newPage({ viewport: { width: 390, height: 800 } }); await m.goto(U + "/advanced"); await m.waitForSelector("text=Advanced search");
   const sb = m.getByRole("button", { name: /^Best suggestions/ }); const hid = !(await m.getByRole("complementary", { name: "Best suggestions" }).isVisible()); await sb.click();
@@ -368,6 +369,9 @@ await ctx.setOffline(true); await wait(300); ok("offline message", await p.getBy
   const lab = () => chips("Boost").locator("[data-chip] span.line-clamp-1").allInnerTexts(), before = await lab();
   await chips("Boost").locator("[data-chip]").nth(1).locator("button").first().focus(); await p.keyboard.press("Alt+ArrowUp"); await wait(300); const after = await lab();
   ok("64 keyboard: copy to Boost, Alt+Up reorders and is announced", before.length === 2 && after[0] === before[1] && /is now 1 of 2 in Boost/.test(await p.locator("p[role=status]").first().innerText()), `${before}|${after}`);
+  { await chips("Boost").locator("[data-chip]").nth(0).locator("button").first().focus(); await p.keyboard.press("Alt+End"); await wait(300); const e = await lab();
+    await chips("Boost").locator("[data-chip]").nth(1).locator("button").first().focus(); await p.keyboard.press("Alt+Home"); await wait(300); const h = await lab();
+    ok("R244 Boost chip: Alt+End moves it last, Alt+Home first", e.at(-1) === after[0] && h[0] === e.at(-1) && e.length === 2, `${after}|${e}|${h}`); }
   ok("65 results show matched-filter chips and no redundant Why panel", await p.locator("[data-matched]").count() > 0 && await p.getByText(/^Why #\d+\?$/).count() === 0); }
 { const c = await b.newContext(), p = await c.newPage(); await p.goto(U + "/"); await p.waitForSelector("nav[aria-label=Main]"); const got = p.waitForRequest(/assets\/Maps-.*\.js/, { timeout: 3000 }).then(() => true).catch(() => false);
   await p.locator("nav[aria-label=Main] a", { hasText: "Maps" }).hover(); ok("82 Maps chunk is fetched on tab hover (intent)", await got); await c.close(); }
@@ -547,6 +551,18 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
   ok("carry-over: Back to top is not covered by the cookie banner at 700 px", hit === "top", hit);
   await o.goto(U + "/issue/" + (await o.evaluate(() => Object.keys(window.__S.issues)[0]))); await o.waitForSelector("ol[aria-label=Contents] a");
   ok("carry-over: contents-list links are underlined", await o.locator("ol[aria-label=Contents] > li > a").first().evaluate((a) => getComputedStyle(a).textDecorationLine === "underline")); await cx.close(); }
+// batch 15 (fresh context): R242 focus ring, row fade at scroll 0, node-list filter on the 3D map
+{ const cx = await b.newContext({ viewport: { width: 1400, height: 1500 } }); await cx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); } catch {} }); const o = await cx.newPage();
+  await o.goto(U + "/search/libre"); await o.waitForSelector("text=chapters for"); await o.waitForTimeout(600); await o.keyboard.press("Tab");
+  const ring = []; for (const s of ["input", "button:visible:enabled", "a[href^='#/read/']", "summary"]) { const el = o.locator(`main ${s}:not(.bg-navy-fill *, .on-navy *)`).first(); /* navy bands use a white ring on purpose */ if (!await el.count()) continue; await el.focus(); await o.waitForTimeout(350); ring.push([s, await el.evaluate((e) => { const c = getComputedStyle(e); return [c.outlineStyle, c.outlineWidth, c.outlineOffset, c.outlineColor].join(" "); })]); }
+  ok("R242 focus ring identical for input, button, link, summary", ring.length >= 3 && new Set(ring.map((r) => r[1])).size === 1, ring.map((r) => r[1]).join(" | "));
+  await o.goto(U + "/"); await o.waitForSelector("ul.row-track"); await o.waitForTimeout(600); const fl = () => o.evaluate(() => document.querySelector("ul.row-track").style.getPropertyValue("--fl"));
+  await o.evaluate(() => { const u = document.querySelector("ul.row-track"); u.style.maxWidth = Math.round(u.firstElementChild.getBoundingClientRect().width * 0.7) + "px"; u.scrollLeft = 0; }); await o.waitForTimeout(500); const f0 = await fl();
+  await o.evaluate(() => { document.querySelector("ul.row-track").scrollLeft = 150; }); await o.waitForTimeout(500); const f1 = await fl();
+  ok("row fade: no left fade at scroll 0 even when the first card is cropped, fade once scrolled", f0 === "0px" && f1 !== "0px", `${f0} -> ${f1}`);
+  await o.goto(U + "/maps/pub/295"); await o.waitForSelector("svg g[data-node]"); const want = await o.locator("svg g[data-node]").evaluateAll((l) => l.filter((g) => g.getAttribute("aria-label").toLowerCase().includes("learn")).length);
+  await o.getByRole("button", { name: "3D", exact: true }).click(); await o.waitForSelector("canvas", { timeout: 20000 }); await o.locator("summary", { hasText: "Node list" }).click(); await o.getByLabel("Filter the node list").fill("learn"); await o.waitForTimeout(300);
+  ok("node-list filter on the 3D map keeps the same nodes as the 2D map", want > 0 && await o.getByRole("list", { name: "Nodes and their connections" }).locator("> li").count() === want, `want ${want}`); await cx.close(); }
 // R238/R239: Trusted Types report-only sinks are the documented ones; any other CSP violation fails
 { const tt = viol.filter((v) => v[0] === "require-trusted-types-for"), other = viol.filter((v) => v[0] !== "require-trusted-types-for"), sinks = [...new Set(tt.map((v) => v[1]?.split(/[|\n]/)[0].slice(0, 40)))];
   console.log(`TT report-only: ${tt.length} events; sinks: ${sinks.join(" ; ")}`);

@@ -16,7 +16,7 @@
 :root { color-scheme: light; /* round 96 motion tokens */ --dur-fast: .15s; --dur: .25s; --dur-slow: .6s; --ease-std: ease; }
 h2 { font-weight: 400; }
 ::selection { background: var(--color-sky); color: var(--color-ink); } /* R182 */
-body { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-sans); }
+body { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-sans); font-variant-numeric: tabular-nums; } /* R243: counts and years line up */
 :focus-visible { outline: 2px solid var(--color-action-2); outline-offset: 2px; }
 /* R223: links inside running text are underlined (not told apart by colour alone); every text link darkens to link-2 on hover */
 p:not(.flex) > a.text-link, ul.list-disc > li > a.text-link, ol.list-decimal > li > a.text-link { text-decoration: underline; text-underline-offset: 2px; }
@@ -60,7 +60,7 @@ g[data-node]:focus-visible > g:not([aria-hidden]) { stroke: var(--color-action-2
 .cover.gen { container-type: inline-size; }
 .cover.gen::after { background: linear-gradient(to top, rgb(40 52 90 / .92), rgb(40 52 90 / .5) 55%, transparent); }
 
-.on-navy :focus-visible, header :focus-visible { outline-color: #fff; }
+.on-navy :focus-visible, .bg-navy-fill :focus-visible, header :focus-visible { outline-color: #fff; }
 .row-btn:focus-visible { opacity: 1; }
 .row-track:focus-visible { outline-offset: -2px; }
 .row-track { padding-inline: 4px; margin-inline: -4px; } /* room for the focus rings of the first/last card */

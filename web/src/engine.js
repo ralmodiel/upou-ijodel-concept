@@ -135,12 +135,13 @@ export async function search0(q, { year, k = 20, fields } = {}) {
     const ws = qt.filter((w) => w.length >= 3);
     const AU = (S.authTok ||= S.articles.map((a) => tok(a.authors.join(" ")))); S.articles.forEach((a, i) => { const au = AU[i]; const h = ws.reduce((s, w) => s + (au.includes(w) ? 12 : au.some((t) => t.startsWith(w)) ? 5 : 0), 0); if (h) { total[i] += h; where[i].unshift("author"); } });
   }
-  const lists = [top(total)], weights = [1];
+  const depth = year ? n : 50; // a year filter keeps only a slice of the fused list: fuse them all so k results survive
+  const lists = [top(total, depth)], weights = [1];
   let qv = null;
   if (embedder && (!fields || fields.length === FIELDS.length)) {
-    qv = await qvec(fix || q); const best = new Array(n).fill(-1);
+    qv = await qvec((fix || q).split(/\s+/).slice(0, 12).join(" ")); const best = new Array(n).fill(-1);
     S.chunks.forEach((_, c) => { const a = S.chunkArt[c]; if (a >= 0) best[a] = Math.max(best[a], cos(S.cv, c, qv)); });
-    lists.push([...best.keys()].sort((x, y) => best[y] - best[x]).slice(0, 50)); weights.push(fix ? 0.3 : 1);
+    lists.push([...best.keys()].sort((x, y) => best[y] - best[x]).slice(0, depth)); weights.push(fix ? 0.3 : 1);
   }
   const pass = !fields || fields.includes("half");
   return Promise.all(rrf(lists, weights).filter((i) => !year || S.articles[i].year === year).slice(0, k).map(async (i) => ({ i, matched: where[i], passage: pass ? await bestPassage(i, qt, qv).catch(() => null) : null })));

@@ -14,7 +14,7 @@ const big = Array.from({ length: 1000 }, (_, k) => { const a = A[k % A.length]; 
 const bigT = Object.fromEntries(big.map((a, k) => [a.id, TX[A[k % A.length].id]]));
 const b = await chromium.launch({ executablePath: `${homedir()}/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`, args: ["--no-sandbox", "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 const Q = "open distance learnig quality";
-let bad = 0;
+let bad = 0; const CPU = +process.argv[process.argv.indexOf("--cpu") + 1] || 1;
 for (const n of [116, 1000]) for (const worker of [true, false]) for (const route of ["/", "/search"]) for (let tryN = 1; tryN <= 2; tryN++) { // a worker run over budget gets one retry: software-GL compositor noise
   const ctx = await b.newContext({ viewport: { width: 1280, height: 900 } });
   await ctx.addInitScript((w) => {
@@ -29,6 +29,7 @@ for (const n of [116, 1000]) for (const worker of [true, false]) for (const rout
     await ctx.route(/index\/texts\.json/, (r) => r.fulfill({ json: bigT }));
   }
   const p = await ctx.newPage();
+  if (CPU > 1) await (await ctx.newCDPSession(p)).send("Emulation.setCPUThrottlingRate", { rate: CPU }); // R247: --cpu 4 = a phone-class CPU
   await p.goto(U + route); await p.getByLabel("Search chapters").first().waitFor();
   if (n > 116 && await p.evaluate(() => window.__S.articles.length) !== 1000) { console.log("FAIL synthetic records not loaded"); bad++; }
   const box = p.getByLabel("Search chapters").first(); await box.click(); await p.waitForTimeout(1500); // first focus warms the worker

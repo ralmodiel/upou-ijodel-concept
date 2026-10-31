@@ -18,4 +18,7 @@ let bad = 0; for (const [q, f] of C) { const r = parseQuery(q); if (!f(r)) { bad
 import { pushUniq } from "../src/query.js";
 let l = []; for (let i = 0; i < 40; i++) l = pushUniq(l, "Q" + (i % 35), 10); l = pushUniq(l, "q5", 10); // R201
 if (l.length > 10 || l[0] !== "q5" || l.filter((x) => x.toLowerCase() === "q5").length !== 1) { bad++; console.log("FAIL pushUniq"); }
-console.log(`${C.length + 1} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);
+// R248: 100k-character pathological inputs parse in < 50 ms (no catastrophic regex backtracking)
+const H = ['author:"', "-", '"', '" ', "-a ", 'author:" ', "year:", "year:2000-", '"a" -', " ", "author:a ", '-"', 'a"b '];
+for (const u of H) { const q = u.repeat(Math.ceil(1e5 / u.length)).slice(0, 1e5), t = performance.now(); parseQuery(q); const ms = performance.now() - t; if (ms > 50) { bad++; console.log("FAIL slow", JSON.stringify(u), Math.round(ms) + " ms"); } }
+console.log(`${C.length + 1 + H.length} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);

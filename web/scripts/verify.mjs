@@ -10,6 +10,9 @@ const run = (cmd) => { try { execSync(cmd, { cwd: web, stdio: "pipe" }); return 
 check(run("npx vite build"), "vite build");
 const gz = (f) => zlib.gzipSync(fs.readFileSync(f)).length / 1024;
 const assets = fs.readdirSync(path.join(dist, "assets")).map((f) => path.join(dist, "assets", f));
+// R246: the h1 font (Merriweather 400 latin) is preloaded with crossorigin, same-origin, and the file exists
+{ const h = fs.readFileSync(path.join(dist, "index.html"), "utf8"), m = h.match(/<link rel="preload" as="font" type="font\/woff2" href="\.\/(assets\/merriweather-latin-400-normal-[^"]+\.woff2)" crossorigin>/);
+  check(!!m && fs.existsSync(path.join(dist, m[1])) && !/rel="preload"[^>]*href="https?:/.test(h), "index.html preloads the Merriweather 400 woff2 (crossorigin, local file)"); }
 const sum = (fs_) => Math.round(fs_.reduce((s, f) => s + gz(f), 0));
 for (const [name, files, max] of [
   ["entry JS", assets.filter((f) => /index-.*\.js$/.test(f)), 82],

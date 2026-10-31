@@ -14,5 +14,11 @@ const W = Array.from({ length: 200 }, () => words[Math.floor(rnd() * words.lengt
 let n = 0; const bad = [];
 for (const q of Q) { n++; const h = E.didYouMean(q); if (h && E.didYouMean(h)) bad.push(`not idempotent: ${q} -> ${h} -> ${E.didYouMean(h)}`); }
 for (const w of W) { n++; const h = E.didYouMean(w); if (h) bad.push(`hint for corpus word: ${w} -> ${h}`); }
+// R240/R241/R249: repeat queries give identical lists; a year filter still returns min(k, articles of that year); a 20,000-word query is fast
+await E.ready(false);
+const yrs = {}; arts.forEach((a) => yrs[a.year] = (yrs[a.year] || 0) + 1);
+for (const q of Q.slice(0, 20)) { n++; const ids = async () => (await E.searchArticles(q, { k: 20 })).map((a) => a.id).join(); if (await ids() !== await ids()) bad.push("unstable list: " + q); }
+for (const q of ["learning", "teaching"]) for (const y of Object.keys(yrs)) { n++; const r = (await E.searchArticles(q, { k: 20, year: y })).length; if (r < Math.min(20, yrs[y])) bad.push(`year ${y} "${q}": ${r} < ${Math.min(20, yrs[y])}`); }
+{ n++; const t = performance.now(); await E.searchArticles(Array.from({ length: 20000 }, (_, i) => "wrd" + (i % 977) + "x").join(" "), { k: 20 }); const ms = performance.now() - t; if (ms > 200) bad.push(`20,000-word query took ${Math.round(ms)} ms`); }
 bad.slice(0, 10).forEach((b) => console.log("FAIL", b));
 console.log(`${Q.length} queries + ${W.length} words: ${n} checks, ${bad.length} FAIL`); process.exit(bad.length ? 1 : 0);
