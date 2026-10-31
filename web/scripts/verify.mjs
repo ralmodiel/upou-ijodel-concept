@@ -13,8 +13,8 @@ const assets = fs.readdirSync(path.join(dist, "assets")).map((f) => path.join(di
 const sum = (fs_) => Math.round(fs_.reduce((s, f) => s + gz(f), 0));
 for (const [name, files, max] of [
   ["entry JS", assets.filter((f) => /index-.*\.js$/.test(f)), 82],
-  ["CSS", assets.filter((f) => f.endsWith(".css")), 30],
-  ["startup data", ["articles.json", "issues.json", "chunks.json"].map((f) => path.join(dist, "index", f)), 250],
+  ["CSS", assets.filter((f) => f.endsWith(".css")), 11], // R147: budgets = measured (CSS 10, data 206 KB gz, 2026-10-31) + 5%
+  ["startup data", ["articles.json", "issues.json", "chunks.json"].map((f) => path.join(dist, "index", f)), 217],
 ]) { const kb = sum(files); check(kb <= max, `${name} ${kb} KB gz (budget ${max})`); }
 const reads = fs.readdirSync(path.join(dist, "read")).filter((d) => fs.existsSync(path.join(dist, "read", d, "index.html")));
 const locs = (fs.readFileSync(path.join(dist, "sitemap.xml"), "utf8").match(/<loc>[^<]*\/read\/[^<]+<\/loc>/g) || []).length;

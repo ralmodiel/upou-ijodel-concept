@@ -17,6 +17,9 @@
 h2 { font-weight: 400; }
 body { background: var(--color-paper); color: var(--color-ink); font-family: var(--font-sans); }
 :focus-visible { outline: 2px solid var(--color-action-2); outline-offset: 2px; }
+/* R142: SVG map nodes get a stroke ring (the outline on a <g> is unreliable); #286699 is 5.9:1 on white */
+g[data-node]:focus-visible { outline: none; }
+g[data-node]:focus-visible > g:not([aria-hidden]) { stroke: var(--color-action-2); stroke-width: 4.5; stroke-dasharray: none; }
 
 /* Catalog rows (after the OER project's browse rows): snap-scrolling cover cards with faded edges. */
 .band:nth-of-type(odd) { background: color-mix(in oklab, var(--color-navy-soft) 70%, var(--color-paper)); }

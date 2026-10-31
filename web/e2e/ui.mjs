@@ -109,7 +109,11 @@ ok("seeding from first result only changes suggestions", (await sgN()) > 0 && (a
 await sg.getByLabel("the filters").check(); await sg.getByLabel("How many of the first results seed suggestions").fill("10");
 // Lookup dialog
 await chips("Required").getByRole("button", { name: /^Find filters/ }).click(); await wait();
-ok("facet pop-up opens", await p.getByRole("dialog").count() > 0); await p.keyboard.press("Escape");
+ok("facet pop-up opens", await p.getByRole("dialog").count() > 0);
+{ let inside = true; for (let i = 0; i < 15; i++) { await p.keyboard.press("Tab"); inside = inside && await p.evaluate(() => !!document.activeElement.closest('[role=dialog]')); }
+  ok("R144 Find filters: 15 Tabs stay inside the dialog", inside); }
+await p.keyboard.press("Escape"); await wait(200);
+ok("R144 Esc closes Find filters and focus returns to the Lookup button", await p.getByRole("dialog").count() === 0 && /^Find filters/.test(await p.evaluate(() => document.activeElement.getAttribute("aria-label") || "")));
 
 // ---- Advanced Q&A option on cards and details ----
 await p.goto(U + "/advanced"); await p.waitForSelector("ul.grid-pubs"); await wait(500);
@@ -215,7 +219,9 @@ ok("no page errors", errs.length === 0, errs.slice(0, 2).join(" | "));
   await c2.getByRole("button", { name: "Cookie settings" }).first().click();
   ok("header has a Cookie settings button that opens the dialog", await c2.getByRole("navigation", { name: "Main" }).getByRole("button", { name: "Cookie settings" }).count() === 1 && await c2.getByRole("dialog", { name: "Cookie and privacy settings" }).count() === 1);
   await c2.getByLabel("Search history and settings").check(); await c2.getByRole("button", { name: "Save choices" }).click();
-  ok("settings dialog saves a choice", (await c2.evaluate(() => JSON.parse(localStorage.getItem("ijodel-consent")))).prefs === true); }
+  ok("settings dialog saves a choice", (await c2.evaluate(() => JSON.parse(localStorage.getItem("ijodel-consent")))).prefs === true);
+  await c2.locator("footer").getByRole("button", { name: "Cookie settings" }).click(); await c2.getByRole("dialog", { name: "Cookie and privacy settings" }).waitFor(); await c2.keyboard.press("Escape"); await c2.waitForTimeout(200);
+  ok("R145 Cookie settings: Esc returns focus to the footer link that opened it", await c2.evaluate(() => document.activeElement.textContent.trim() === "Cookie settings" && !!document.activeElement.closest("footer"))); }
 { const t0 = await p.title(); await p.goto(U + "/read/10"); await p.waitForFunction((t) => document.title !== t && document.title.endsWith("| IJODeL"), t0);
   const a = await p.title(); await p.goto(U + "/maps"); await p.waitForFunction((t) => document.title !== t, a);
   ok("document.title changes per route", /Maps \| IJODeL/.test(await p.title()), await p.title());
@@ -307,6 +313,7 @@ ok("lists: reorder", JSON.parse(await p.evaluate(() => localStorage.getItem("ijo
 await p.goto(U + "/maps/pub/295"); await p.waitForSelector("svg g[data-node]"); await wait(500);
 { await p.getByLabel("Find a node on the map").fill(await p.locator("svg g[data-node][tabindex]").nth(3).getAttribute("aria-label").then((l) => l.split(": ")[1].slice(0, 12))); await p.keyboard.press("Enter"); await wait();
   ok("maps: node search selects and focuses a node", await p.evaluate(() => document.activeElement?.getAttribute("aria-pressed")) === "true");
+  ok("R142 focused map node shows a stroke ring (>=3 wide, >=3:1 on white)", await p.evaluate(() => { const c = getComputedStyle(document.activeElement.querySelector(":scope > g:not([aria-hidden])")), [r, g, b] = c.stroke.match(/\d+/g).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return parseFloat(c.strokeWidth) >= 3 && 1.05 / (0.2126 * r + 0.7152 * g + 0.0722 * b + 0.05) >= 3; }));
   const a0 = await p.evaluate(() => document.activeElement.dataset.node); await p.keyboard.press("ArrowRight"); ok("maps: arrow keys move between nodes", await p.evaluate((a) => document.activeElement.dataset.node && document.activeElement.dataset.node !== a, a0));
   ok("maps: every line has a why-connected tooltip", await p.locator("svg > g > g:not([data-node]) > title").count() === await p.locator("svg > g > g:not([data-node])").count() && /→/.test(await p.locator("svg title").first().textContent()));
   await p.getByRole("button", { name: "3D", exact: true }).click(); await p.waitForSelector("canvas", { timeout: 20000 }).catch(() => {}); ok("maps: 3D offers a low-power mode", await p.getByLabel("Low power").count() === 1); await p.getByLabel("Low power").check(); await wait(800); ok("maps: low power keeps rendering", await p.locator("canvas").count() > 0); }
@@ -329,7 +336,7 @@ await ctx.setOffline(true); await wait(300); ok("offline message", await p.getBy
 { await p.goto(U + "/search/chatgtp%20teaching"); await p.waitForSelector("text=chapters for"); await wait(600);  // round 55: a typo next to a real word still finds the article
   ok("search: typo beside a real word (chatgtp teaching) finds the ChatGPT article", await p.getByText("ChatGPT — A Threat or an Aid", { exact: false }).first().isVisible().catch(() => false)); }
 // ---- rounds 56-65 ----
-{ await p.goto(U + "/search/" + encodeURIComponent('learning "distance education" year:2016-2018')); await p.waitForSelector("text=chapters for"); await wait(600);
+{ await p.goto(U + "/search/" + encodeURIComponent('learning "distance education" year:2016-2018')); await p.waitForSelector("text=chapters for"); await p.waitForSelector(".grid-pubs > li p.text-xs", { timeout: 8000 }).catch(() => {});
   const ys = await p.locator(".grid-pubs > li p.text-xs", { hasText: "· Vol" }).allInnerTexts();
   ok("56 operators: phrase and year shown as chips, results inside the years", await p.getByRole("link", { name: "Remove year: 2016–2018" }).count() === 1 && await p.getByRole("link", { name: "Remove “distance education”" }).count() === 1 && ys.length > 0 && ys.every((t) => /201[678] · Vol/.test(t)), `(${ys.length})`); }
 { await p.goto(U + "/search/libre"); await p.waitForSelector("text=chapters for"); await wait(600);

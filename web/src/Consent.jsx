@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { setConsent, useConsent } from "./consent.js";
+import { setConsent, useConsent, useDialog } from "./consent.js";
 
 const OPEN = "ijodel-open-cookies";
 export const openCookieSettings = () => dispatchEvent(new Event(OPEN));
@@ -14,7 +14,7 @@ function Switch({ id, label, hint, on, set, locked }) {
 }
 
 function Settings({ initial, onClose }) {
-  const [prefs, setPrefs] = useState(!!initial?.prefs), [lists, setLists] = useState(!!initial?.lists), [model, setModel] = useState(!!initial?.model), [counter, setCounter] = useState(!!initial?.counter), box = useRef(null);
+  const [prefs, setPrefs] = useState(!!initial?.prefs), [lists, setLists] = useState(!!initial?.lists), [model, setModel] = useState(!!initial?.model), [counter, setCounter] = useState(!!initial?.counter), box = useRef(null); useDialog(box);
   useEffect(() => {
     box.current?.querySelector("input:not(:disabled)")?.focus();
     const esc = (e) => e.key === "Escape" && onClose();

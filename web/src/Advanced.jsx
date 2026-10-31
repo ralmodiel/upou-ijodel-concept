@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { searchArticles } from "./engine.js";
-import { pref, allow } from "./consent.js";
+import { pref, allow, useDialog } from "./consent.js";
 import { suggest } from "./suggest.js";
 import { AdvIntro, Icon, Link, Pub, Card, AddBtn, ViewToggle, ResultIssues, issueKey } from "./App.jsx";
 
@@ -197,13 +197,13 @@ function Area({ id, name, hint, chips, F, onLookup, diff }) {
 
 // The lookup popup: browse every facet value and send it to any area.
 function Lookup({ F, area, close }) {
-  const [drag, setDrag] = useState(false), [to, setTo] = useState(area), [k, setK] = useState("category"), [q, setQ] = useState(""), { areas } = useAdv();
+  const [drag, setDrag] = useState(false), [to, setTo] = useState(area), [k, setK] = useState("category"), [q, setQ] = useState(""), { areas } = useAdv(), box = useRef(null); useDialog(box);
   useEffect(() => { const f = (e) => e.key === "Escape" && close(); addEventListener("keydown", f); return () => removeEventListener("keydown", f); }, []);
   const list = F[k].filter((f) => f.l.toLowerCase().includes(q.toLowerCase())).slice(0, 120);
   const inArea = (f) => AREAS.find(([a]) => areas[a].some((c) => c.k === k && c.v === f.v))?.[1];
   return createPortal(
     <div className={`fixed inset-0 z-50 grid place-items-center p-3 transition ${drag ? "pointer-events-none" : "bg-ink-fill/50"}`} onClick={close}>
-      <div role="dialog" aria-modal="true" aria-label="Find filters" onClick={(e) => e.stopPropagation()} className={`flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-surface shadow-2xl transition ${drag ? "opacity-0" : ""}`}>
+      <div ref={box} role="dialog" aria-modal="true" aria-label="Find filters" onClick={(e) => e.stopPropagation()} className={`flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-surface shadow-2xl transition ${drag ? "opacity-0" : ""}`}>
         <div className="flex flex-wrap items-center gap-3 border-b border-line p-4"><h2 className="font-serif text-xl">Find filters</h2><span className="text-xs text-ink-3">click to add, or drag onto an area</span>
           <label className="ml-auto flex items-center gap-2 text-sm">Add to <select value={to} onChange={(e) => setTo(e.target.value)} className="min-h-10 rounded-md border border-line px-2 text-base">{AREAS.map(([a, n]) => <option key={a} value={a}>{n}</option>)}</select></label>
           <button type="button" onClick={close} className="min-h-10 rounded-md bg-action-fill px-4 font-bold text-white">Done</button></div>

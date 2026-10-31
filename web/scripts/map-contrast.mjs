@@ -8,4 +8,6 @@ const stroke = src.match(/inSearch\(n\) \? "(#[0-9a-f]{6})"/)?.[1], fills = { ..
 if (!stroke) { console.log("FAIL stroke colour not found"); process.exit(1); }
 const w = cr(stroke, "#ffffff");
 console.log(`stroke ${stroke} vs white ${w.toFixed(2)}; ` + Object.entries(fills).map(([k, v]) => `${k} ${cr(stroke, v).toFixed(1)}`).join(", "));
-console.log(`1 check, ${w >= 3 ? 0 : 1} FAIL`); process.exit(w >= 3 ? 0 : 1);
+// non-colour cue: the in-search stroke is dashed, so it reads apart from every fill without relying on hue
+const dash = /strokeDasharray=\{inSearch\(n\)/.test(src);
+console.log(`2 checks, ${(w >= 3 ? 0 : 1) + (dash ? 0 : 1)} FAIL${dash ? "" : " (no dash cue)"}`); process.exit(w >= 3 && dash ? 0 : 1);

@@ -8,9 +8,15 @@ let n = 0, bad = 0; const ok = (m, c, x = "") => { n++; console.log(`${c ? "PASS
 const meta = fs.readFileSync(path.join(web, "index.html"), "utf8").match(/Content-Security-Policy" content="([^"]*)"/)[1];
 const SEC = { "content-security-policy": (v) => v.includes(meta) && /frame-ancestors 'none'/.test(v), "strict-transport-security": (v) => /max-age=(\d+)/.exec(v)?.[1] >= 15552000,
   "x-content-type-options": (v) => v === "nosniff", "referrer-policy": (v) => /strict-origin/.test(v), "permissions-policy": (v) => /camera=\(\)/.test(v) };
+// R148: meta CSP has no 'unsafe-inline' / 'unsafe-eval' token and exactly the two documented wildcard hosts
+{ const toks = meta.split(/[\s;]+/), wild = toks.filter((t) => /\*/.test(t)).map((t) => t.replace(/^https?:\/\//, "")).sort();
+  ok("meta CSP: no unsafe-inline / unsafe-eval", !toks.some((t) => /^'unsafe-(inline|eval)'$/.test(t)));
+  ok("meta CSP: wildcard hosts are only *.huggingface.co and *.hf.co", JSON.stringify(wild) === JSON.stringify(["*.hf.co", "*.huggingface.co"]), wild.join(",")); }
 if (!url) {
   const h = fs.readFileSync(path.join(web, "dist/_headers"), "utf8"), block = (p) => Object.fromEntries((h.split(/^(?=\S)/m).find((b) => b.startsWith(p + "\n")) || "").split("\n").slice(1).filter(Boolean).map((l) => { const i = l.indexOf(":"); return [l.slice(0, i).trim().toLowerCase(), l.slice(i + 1).trim()]; }));
-  const all = block("/*"); for (const [k, f] of Object.entries(SEC)) ok(`_headers /* ${k}`, all[k] && f(all[k]));
+  const all = block("/*"); // R149
+  for (const f of ["camera", "microphone", "geolocation", "payment", "usb", "interest-cohort"]) ok(`_headers Permissions-Policy denies ${f}`, new RegExp(`\\b${f}=\\(\\)`).test(all["permissions-policy"] || ""));
+  ok("_headers Cross-Origin-Opener-Policy same-origin", all["cross-origin-opener-policy"] === "same-origin"); for (const [k, f] of Object.entries(SEC)) ok(`_headers /* ${k}`, all[k] && f(all[k]));
   ok("_headers Trusted Types trial (report-only)", /require-trusted-types-for/.test(all["content-security-policy-report-only"] || ""));
   ok("_headers assets immutable", /immutable/.test(block("/assets/*")["cache-control"] || ""));
   ok("_headers sw.js not cached", /no-cache/.test(block("/sw.js")["cache-control"] || ""));

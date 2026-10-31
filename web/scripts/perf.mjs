@@ -17,7 +17,7 @@ const srv = http.createServer((q, r) => {
   h["content-length"] = body.length; r.writeHead(200, h).end(body);
 }).listen(PORT);
 // budgets: LCP ms, CLS, long-task ms, transfer KB (measured after rounds 27/28/31 plus headroom for 4x-CPU noise; search fetches per-article passages since round 29b; KB now includes the worker fetches)
-const B = { "/": { lcp: 4000, cls: 0.02, tbt: 800, kb: 1300 }, "/search/libre": { lcp: 4000, cls: 0.02, tbt: 600, kb: 3200 }, "/read/3": { lcp: 4000, cls: 0.02, tbt: 600, kb: 1200 }, "/maps": { lcp: 4500, cls: 0.02, tbt: 1000, kb: 1700 }, "/advanced": { lcp: 4000, cls: 0.02, tbt: 1000, kb: 1700 }, "/issues": { lcp: 4000, cls: 0.02, tbt: 800, kb: 1300 } };
+const B = { "/": { lcp: 4000, cls: 0.01, tbt: 800, kb: 1300 }, "/search/libre": { lcp: 4000, cls: 0.01, tbt: 600, kb: 3200 }, "/read/3": { lcp: 4000, cls: 0.02, tbt: 600, kb: 1200 }, "/maps": { lcp: 4500, cls: 0.02, tbt: 1000, kb: 1700 }, "/advanced": { lcp: 4000, cls: 0.02, tbt: 1000, kb: 1700 }, "/issues": { lcp: 4000, cls: 0.02, tbt: 800, kb: 1300 } };
 // round 81: field targets (LCP 2.5 s, INP 200 ms, CLS 0.02) are reported per route; budgets above stay the lab gate on 4x CPU
 const FIELD = { lcp: 2500, inp: 200, cls: 0.02 };
 const b = await chromium.launch({ executablePath: `${homedir()}/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`, args: ["--no-sandbox", "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });

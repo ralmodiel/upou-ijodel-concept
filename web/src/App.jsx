@@ -172,7 +172,7 @@ function Header({ route }) {
     <header className="text-white print:hidden">
       <div className="bg-surface"><div className="mx-auto max-w-6xl min-[1536px]:max-w-[88rem] px-4 sm:px-8">
         <div className="group relative">
-          <Link to="/" aria-label="IJODeL, International Journal on Open and Distance e-Learning: home" aria-describedby="logo-note" className="block"><img src={asset("img/logo.webp")} width="1200" height="300" alt="" fetchpriority="high" className="h-auto w-full" /></Link>
+          <Link to="/" aria-label="IJODeL, International Journal on Open and Distance e-Learning: home" aria-describedby="logo-note" className="block"><img src={asset("img/logo.webp")} width="1200" height="300" decoding="async" alt="" fetchpriority="high" className="h-auto w-full" /></Link>
           <span id="logo-note" role="tooltip" className="pointer-events-none absolute left-0 top-full z-50 mt-1 hidden w-72 rounded-md bg-ink-fill p-3 text-xs font-normal leading-snug text-white shadow-lg group-hover:block group-focus-within:block">Disclaimer: this is a proof of concept, not the official IJODeL site. The IJODeL name and logo belong to the journal and UP Open University and are shown only to identify the source of the content.</span>
           {/* the logo's centre emblem: a relationship map seeded with a random chapter of the latest issue */}
           <a href="#/maps/pub" aria-label="Explore the relationship map from a random chapter of the latest issue" title="Explore the map from the top search result, or a random chapter of the latest issue" className="absolute left-[44.5%] top-[64%] block h-[36%] w-[11%] rounded-full outline-offset-2 hover:bg-sky/20"
@@ -383,7 +383,7 @@ function IssueCard({ it, eager }) {
   return (
     <li className="pub">
       <Link to={"/issue/" + it.k} className="pub-link block h-full overflow-hidden rounded-xl border border-line bg-surface shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-        <div className="relative aspect-[3/4] overflow-hidden bg-navy-fill"><img src={asset(m.cover)} width="420" height="592" alt={"Cover of " + it.label} loading={eager ? "eager" : "lazy"} fetchpriority={eager ? "high" : undefined} className="h-full w-full object-cover transition duration-500 hover:scale-105" />
+        <div className="relative aspect-[3/4] overflow-hidden bg-navy-fill"><img src={asset(m.cover)} width="420" height="592" decoding="async" alt={"Cover of " + it.label} loading={eager ? "eager" : "lazy"} fetchpriority={eager ? "high" : undefined} className="h-full w-full object-cover transition duration-500 hover:scale-105" />
           <span className="absolute left-2 top-2 rounded-full bg-surface/90 px-2.5 py-0.5 text-xs font-bold text-navy">{it.items.length} chapters</span></div>
         <div className="p-3"><h3 className="font-serif text-lg leading-snug text-ink">{m.theme}</h3><p className="mt-1 text-xs text-ink-3">{it.label}</p></div>
       </Link>
@@ -485,7 +485,7 @@ function Group({ kind, id }) {
   return (
     <section className="mx-auto max-w-6xl min-[1536px]:max-w-[88rem] px-4 py-8 sm:px-8">
       <Crumbs trail={[["/", "Home"], ...(kind === "issue" ? [["/issues", "Issues"]] : kind === "year" ? [] : [["/topics", "Topics"]]), [null, kind === "tag" ? "Tag: " + title : title]]} />
-      <div className="mt-2 flex gap-5">{im && <img src={asset(im.cover)} width="420" height="592" alt={`Cover of ${title}`} className="hidden w-28 shrink-0 rounded border border-line sm:block" />}<div>
+      <div className="mt-2 flex gap-5">{im && <img src={asset(im.cover)} width="420" height="592" decoding="async" alt={`Cover of ${title}`} className="hidden w-28 shrink-0 rounded border border-line sm:block" />}<div>
       <h1 className="font-serif text-3xl font-light">{kind === "tag" && <span className="text-ink-3">Tag: </span>}{title}</h1>{im?.theme && <p className="font-serif text-lg text-ink-2">{im.theme}</p>}<p className="text-ink-3">{items.length} chapters{kind === "issue" ? " in this issue" : ""}</p>
       {kind === "cat" && Object.keys(rc).length > 0 && <p className="mt-3 flex flex-wrap gap-2 text-sm"><span className="text-ink-3">Related topics:</span>{Object.entries(rc).sort((x, y) => y[1] - x[1]).map(([c]) => <Link key={c} to={"/cat/" + slug(c)} className="rounded-full bg-crimson-soft px-3 py-0.5 text-link hover:underline">{c}</Link>)}</p>}</div></div>
       {kind === "issue" && items.length > 0 && <ol aria-label="Contents" className="mt-4 list-decimal space-y-1 pl-6 text-sm">{items.map((a) => <li key={a.id}><Link to={"/read/" + a.id} className="text-link hover:underline">{a.title}</Link> <span className="text-ink-3">· {by(a)}</span></li>)}</ol>}
@@ -538,7 +538,7 @@ const Privacy = lazyRetry(() => import("./Legal.jsx"), (m) => m.Privacy), About 
 // The journal's own cover of a whole issue, small, linking to the issue.
 export function IssueThumb({ a, className = "" }) {
   const m = window.__S.issues[issueKey(a)];
-  return m ? <Link to={"/issue/" + issueKey(a)} title={`From the issue: ${m.theme} (${a.issue.label})`} aria-label={`Issue ${a.issue.label}: ${m.theme}`} className={`pub-link block shrink-0 overflow-hidden rounded border border-line ${className}`}><img src={asset(m.cover)} width="420" height="592" alt="" loading="lazy" className="h-full w-full object-cover" /></Link> : null;
+  return m ? <Link to={"/issue/" + issueKey(a)} title={`From the issue: ${m.theme} (${a.issue.label})`} aria-label={`Issue ${a.issue.label}: ${m.theme}`} className={`pub-link block shrink-0 overflow-hidden rounded border border-line ${className}`}><img src={asset(m.cover)} width="420" height="592" decoding="async" alt="" loading="lazy" className="h-full w-full object-cover" /></Link> : null;
 }
 // Which issues the results come from, with their original covers.
 export function ResultIssues({ rows }) {
@@ -551,7 +551,7 @@ export function ResultIssues({ rows }) {
   return (
     <section aria-label="Issues in these results" className="relative mb-5 rounded-xl border border-line bg-surface p-3">
       <h2 className="text-2xs font-bold uppercase tracking-wide text-ink-3">Issues in these results ({n.size})</h2>
-      <ul ref={rail} tabIndex={0} aria-label="Issues in these results, scroll sideways" className="-mr-3 mt-2 flex snap-x gap-3 overflow-x-auto scroll-smooth pb-1 pr-3">{top.map(([k, c]) => <li key={k} className="w-24 shrink-0 snap-start"><Link to={"/issue/" + k} className="pub-link block" title={S.issues[k].theme}><img src={asset(S.issues[k].cover)} width="420" height="592" alt={"Cover of " + k} loading="lazy" className="aspect-[3/4] w-full rounded border border-line object-cover" /><span className="mt-1 line-clamp-2 block text-2xs leading-tight text-ink-2">{c} chapter{c > 1 ? "s" : ""} · {S.issues[k].theme}</span></Link></li>)}</ul>
+      <ul ref={rail} tabIndex={0} aria-label="Issues in these results, scroll sideways" className="-mr-3 mt-2 flex snap-x gap-3 overflow-x-auto scroll-smooth pb-1 pr-3">{top.map(([k, c]) => <li key={k} className="w-24 shrink-0 snap-start"><Link to={"/issue/" + k} className="pub-link block" title={S.issues[k].theme}><img src={asset(S.issues[k].cover)} width="420" height="592" decoding="async" alt={"Cover of " + k} loading="lazy" className="aspect-[3/4] w-full rounded border border-line object-cover" /><span className="mt-1 line-clamp-2 block text-2xs leading-tight text-ink-2">{c} chapter{c > 1 ? "s" : ""} · {S.issues[k].theme}</span></Link></li>)}</ul>
       {over && <div className="absolute right-3 top-2 flex gap-1">{[[-1, "‹", "Scroll left"], [1, "›", "Scroll right"]].map(([d, g, l]) => <button key={d} type="button" aria-label={l} onClick={() => step(d)} className="grid h-7 w-7 place-items-center rounded-full border border-line bg-surface text-lg leading-none text-ink-2 hover:bg-navy-soft">{g}</button>)}</div>}
     </section>);
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Cookie / storage consent. Nothing but the choice itself is written to the device until the visitor allows it:
 //   lists: the view lists only (localStorage)
@@ -34,3 +34,19 @@ export const pref = {
   get(k) { const v = allow(cls(k)) ? (() => { try { return localStorage.getItem(k); } catch { return null; } })() : mem.get(k) ?? null; return v && v.length > 200000 ? null : v; }, // oversized: ignore
   set(k, v) { mem.set(k, v); if (allow(cls(k))) { try { localStorage.setItem(k, v); } catch { /* private mode */ } } },
 };
+
+// R144/R145: modal dialog behaviour shared by the Find filters and Cookie settings dialogs: focus moves in, Tab wraps inside, closing returns focus to the opener.
+export function useDialog(box) {
+  const opener = useRef(document.activeElement); // read during the first render: an autoFocus input has already stolen focus by the time effects run
+  useEffect(() => {
+    const prev = opener.current, items = () => [...box.current.querySelectorAll('a[href],button:not(:disabled),input:not(:disabled),select,textarea,[tabindex]:not([tabindex="-1"])')];
+    if (!box.current.contains(document.activeElement)) items()[0]?.focus();
+    const tab = (e) => {
+      if (e.key !== "Tab" || !box.current) return;
+      const l = items(), a = document.activeElement; if (!l.length) return e.preventDefault();
+      if (!box.current.contains(a) || (e.shiftKey && a === l[0]) || (!e.shiftKey && a === l[l.length - 1])) { e.preventDefault(); l[e.shiftKey ? l.length - 1 : 0].focus(); }
+    };
+    addEventListener("keydown", tab);
+    return () => { removeEventListener("keydown", tab); if (prev?.isConnected) prev.focus(); };
+  }, []);
+}
