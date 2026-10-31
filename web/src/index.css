@@ -84,5 +84,8 @@ main:focus { outline: none; }
 .pulse-orange:hover { animation-play-state: paused; }
 @media (prefers-reduced-motion: reduce) { .pulse-orange { animation: none; box-shadow: 0 0 0 3px rgba(249,115,22,.45); } }
 
+/* R212: a printed chapter has no controls (header, footer, banners and dialogs are print:hidden in the markup) */
+@media print { main button, main nav, main [role="tablist"] { display: none !important; } }
+
 /* round 19: catch-all so no animation/smooth scroll survives reduced motion */
 @media (prefers-reduced-motion: reduce) { .skeleton, .scroll-smooth { animation: none; scroll-behavior: auto; } *, ::before, ::after { transition-duration: .01ms !important; } }

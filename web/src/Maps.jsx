@@ -206,9 +206,13 @@ export function Maps({ kind = "pub", id }) {
       <div className="mt-2 flex flex-wrap items-end gap-x-5 gap-y-2 rounded-xl border border-line bg-surface p-3 sm:mt-4 sm:gap-y-3 sm:p-4">
         <div><span className="text-sm text-ink-3">Seed kind</span>
           <div className="mt-1 flex overflow-hidden rounded-md border border-line" role="group" aria-label="Seed kind">{[["pub", "Chapter"], ["tag", "Topic"], ["author", "Author"]].map(([k, l]) => <Link key={k} to={`/maps/${k}`} className={`inline-flex min-h-10 items-center px-4 text-sm ${kind === k ? "bg-action-fill text-white" : "text-ink-2 hover:bg-navy-soft"}`}>{l}</Link>)}</div></div>
-        <label className="min-w-[14rem] flex-1 text-sm text-ink-3">Seed
-          <input list="seeds" value={text} onChange={(e) => pick(e.target.value)} onFocus={(e) => e.target.select()} className="mt-1 block w-full rounded-md border border-line bg-surface px-3 py-2 text-base text-ink" />
-          <datalist id="seeds">{options.slice(0, 400).map(([l]) => <option key={l} value={l} />)}</datalist></label>
+        <div className="min-w-[14rem] flex-1"><span id="map-seed-l" className="text-sm text-ink-3">Seed</span>
+          <div className="mt-1 flex gap-2">
+            <input aria-labelledby="map-seed-l" list="seeds" value={text} onChange={(e) => pick(e.target.value)} onFocus={(e) => e.target.select()} className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-base text-ink" />
+            <button type="button" onClick={() => setText("")} disabled={!text} className="min-h-10 shrink-0 rounded-md border border-line px-3 text-sm text-ink-2 disabled:opacity-40">Clear</button>
+            <button type="button" onClick={() => go("pub", S.articles[Math.floor(Math.random() * S.articles.length)].id)} className="min-h-10 shrink-0 rounded-md border border-line px-3 text-sm text-ink-2">Random</button>
+          </div>
+          <datalist id="seeds">{options.slice(0, 400).map(([l]) => <option key={l} value={l} />)}</datalist></div>
       </div>
       <div className={`mt-2 grid gap-4 sm:mt-4 grid-cols-[minmax(0,1fr)] ${th && !fs ? "" : "lg:grid-cols-[minmax(0,1fr)_20rem]"}`}>
         <div ref={panel} className={`overflow-hidden rounded-xl border border-line bg-surface ${fs ? "flex h-screen flex-col !rounded-none" : ""} ${th && !fs ? "relative !rounded-none" : ""}`} style={th && !fs ? { width: winW, marginLeft: thX } : undefined}>

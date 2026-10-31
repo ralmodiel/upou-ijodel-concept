@@ -1,6 +1,7 @@
 import { parseQuery, pushUniq } from "./query.js";
 import { weakDevice } from "./device.js";
 import { recommend } from "./recommend.js";
+import { normLists, NAME_MAX } from "./lists.js";
 import { bibtex, citeStyle, styleText, STYLES, ris } from "./cite.js";
 import { CookieConsent, openCookieSettings } from "./Consent.jsx";
 import { useSeo } from "./useSeo.js";
@@ -66,9 +67,9 @@ const getLists = () => {
   if (l.length) return l;
   return [{ id: "l1", name: "My list", items: store("ijodel-list").filter((x) => typeof x === "string" || typeof x === "number") }];
 };
-const saveLists = (l) => { store("ijodel-lists", l); listeners.forEach((f) => f()); };
+const saveLists = (l) => { store("ijodel-lists", normLists(l)); listeners.forEach((f) => f()); };
 const toggleIn = (lid, id) => saveLists(getLists().map((l) => l.id === lid ? { ...l, items: l.items.includes(id) ? l.items.filter((x) => x !== id) : [...l.items, id] } : l));
-const newList = (name, id) => { const l = getLists(), lid = "l" + Date.now().toString(36); saveLists([...l, { id: lid, name: name.trim().slice(0, 40) || "Untitled list", items: id ? [id] : [] }]); return lid; };
+const newList = (name, id) => { const l = getLists(), lid = "l" + Date.now().toString(36); saveLists([...l, { id: lid, name: name.trim().slice(0, NAME_MAX) || "Untitled list", items: id ? [id] : [] }]); return lid; };
 function useLists() {
   const [l, set] = useState(getLists);
   useEffect(() => { const f = () => set(getLists()); listeners.add(f); return () => listeners.delete(f); }, []);
@@ -106,8 +107,8 @@ export function AddBtn({ id, className = "", label }) {
   );
 }
 // Shared/imported lists are untrusted: keep only ids of known chapters, at most 200, and a 40-character name.
-const cleanList = (name, ids) => ({ name: String(name || "").trim().slice(0, 40) || "Shared list", items: [...new Set((Array.isArray(ids) ? ids : []).map(String))].filter((i) => window.__S.byId[i]).slice(0, 200) });
-const addLists = (ls) => { const l = getLists(), t = Date.now().toString(36); saveLists([...l, ...ls.map((x, i) => ({ id: "l" + t + i, ...x }))].slice(0, 50)); return "l" + t + "0"; };
+const cleanList = (name, ids) => ({ name: String(name || "").trim().slice(0, NAME_MAX) || "Shared list", items: [...new Set((Array.isArray(ids) ? ids : []).map(String))].filter((i) => window.__S.byId[i]).slice(0, 200) });
+const addLists = (ls) => { const l = getLists(), t = Date.now().toString(36); saveLists([...l, ...ls.map((x, i) => ({ id: "l" + t + i, ...x }))]); return "l" + t + "0"; };
 const download = (name, text, type) => { const u = URL.createObjectURL(new Blob([text], { type })), a = document.createElement("a"); a.href = u; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(u), 1000); };
 // A shared list arrives as #/list/share/<name>/<id,id,...>; nothing is saved until the visitor asks.
 function SharedList({ name, ids }) {
@@ -154,7 +155,7 @@ function MyList({ lid }) {
       <div className="mt-5 flex flex-wrap items-center gap-3"><h2 className="font-serif text-2xl">{cur.name}</h2><span className="text-ink-3">{items.length} chapter{items.length === 1 ? "" : "s"}</span>
         <span className="ml-auto flex flex-wrap items-center gap-3">
           {items.length > 0 && <Link to={"/read/" + items[0].id} className="rounded-full bg-action-fill px-5 py-2 text-sm font-medium text-white hover:bg-action-2-fill">Start reading</Link>}
-          <button type="button" onClick={() => { const n = prompt("Rename list", cur.name); if (n && n.trim()) edit((l) => ({ ...l, name: n.trim().slice(0, 40) })); }} className="min-h-10 text-sm text-link hover:underline">Rename</button>
+          <button type="button" onClick={() => { const n = prompt("Rename list", cur.name); if (n && n.trim()) edit((l) => ({ ...l, name: n.trim().slice(0, NAME_MAX) })); }} className="min-h-10 text-sm text-link hover:underline">Rename</button>
           {lists.length > 1 && <button type="button" onClick={() => { if (confirm(`Delete “${cur.name}”?`)) { saveLists(lists.filter((l) => l.id !== cur.id)); location.hash = "/list"; } }} className="min-h-10 text-sm text-link hover:underline">Delete</button>}
           {items.length > 0 && <button type="button" onClick={() => confirm("Remove every chapter from this list?") && edit((l) => ({ ...l, items: [] }))} className="min-h-10 text-sm text-link hover:underline">Empty</button>}</span></div>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 text-sm"><span className="text-ink-3">Export or share:</span>

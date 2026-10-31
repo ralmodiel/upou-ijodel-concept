@@ -480,6 +480,16 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
   await k.evaluate(() => document.activeElement.blur()); await k.keyboard.press("Shift+?"); const dlg = k.getByRole("dialog", { name: "Keyboard shortcuts" }); await dlg.waitFor({ timeout: 3000 }).catch(() => {});
   const nli = await dlg.locator("li").count(); await k.keyboard.press("Escape"); await wait(200);
   ok("R204 '?' opens the shortcuts dialog (5 items); Esc closes it", nli === 5 && !(await dlg.isVisible()), `(${nli})`); await cx.close(); }
+{ await p.goto(U + "/maps/pub/3"); await p.getByLabel("Seed", { exact: true }).waitFor(); await wait(300); // R214 seed Clear / Random chapter
+  const inp = p.getByLabel("Seed", { exact: true }), h0 = p.url(), t0 = await inp.inputValue();
+  await p.getByRole("button", { name: "Clear" }).click(); await wait(200);
+  const cleared = (await inp.inputValue()) === "" && p.url() === h0 && t0 !== "";
+  let moved = false; for (let i = 0; i < 4 && !moved; i++) { await p.getByRole("button", { name: "Random", exact: true }).click(); await wait(500); moved = p.url() !== h0; }
+  ok("R214 maps: Clear empties the seed input without moving the map; Random chapter changes the seed hash", cleared && moved, `(${h0} -> ${p.url()})`); }
+{ const cx = await b.newContext({ viewport: { width: 1000, height: 800 } }); await cx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true })); } catch {} }); // R215 offline bar
+  const o = await cx.newPage(); await o.goto(U + "/issues"); await o.waitForSelector("h1"); await cx.setOffline(true); await o.waitForTimeout(500);
+  const on = await o.getByText("You are offline. Pages already opened").isVisible(); await cx.setOffline(false); await o.waitForTimeout(500);
+  ok("R215 offline bar shows when offline and hides when back online", on && !(await o.getByText("You are offline. Pages already opened").isVisible())); await cx.close(); }
 ok("no page errors (rounds 38-46)", errs.length === 0, errs.slice(0, 2).join(" | "));
 ok("no CSP violations by the end (model load included)", !csp.length, csp[0]?.slice(0, 120) ?? "");
 await b.close(); process.exit(bad ? 1 : 0);

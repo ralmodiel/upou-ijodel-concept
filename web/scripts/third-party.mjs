@@ -41,7 +41,8 @@ for (const [name, pat] of [["jsDelivr", /cdn\.jsdelivr\.net/], ["Hugging Face", 
 }
 // R189: a fresh visitor (no consent stored) loads 8 routes; every request goes to the page origin
 { const c = await b.newContext(), reqs = []; c.on("request", (r) => reqs.push(r.url())); const p = await c.newPage();
-  for (const r of ["/", "/search/libre", "/read/3", "/maps", "/advanced", "/issues", "/topics", "/privacy"]) { await p.goto(U + "/#" + r); await p.waitForSelector("main h1"); await p.waitForTimeout(800); }
+  for (const r of ["/search/libre", "/", "/search/libre", "/read/3", "/maps", "/advanced", "/issues", "/topics", "/privacy"]) { await p.goto(U + "/#" + r); await p.waitForSelector("main h1"); await p.waitForTimeout(800); }
   const off = [...new Set(reqs.filter((u) => /^https?:/.test(u) && new URL(u).origin !== U))];
+  ok("R217 fresh visitor on /search/libre: no transformers chunk requested", !reqs.some((u) => /assets\/transformers/.test(u)), reqs.filter((u) => /transformers/.test(u))[0] || "");
   ok("fresh visitor, 8 routes: only same-origin requests", off.length === 0, off.slice(0, 3).join(" ")); await c.close(); }
 await b.close(); console.log(`${n} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);

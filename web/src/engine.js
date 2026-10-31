@@ -42,7 +42,7 @@ export async function load() {
 
 // Per-article files written by seo.mjs (index/pass/<id>.json, index/faq/<id>.json), fetched on demand and kept in a small LRU.
 // Dev server and node (search-eval) have only the whole files: the fallback loads those once and keeps them.
-const lru = (max) => { const m = new Map(); return (k, f) => { let v = m.get(k); if (v) m.delete(k); else v = f().catch((e) => { m.delete(k); throw e; }); m.set(k, v); if (m.size > max) m.delete(m.keys().next().value); return v; }; };
+export const lru = (max) => { const m = new Map(); return (k, f) => { let v = m.get(k); if (v) m.delete(k); else v = f().catch((e) => { m.delete(k); throw e; }); m.set(k, v); if (m.size > max) m.delete(m.keys().next().value); return v; }; };
 const passLru = lru(40), faqLru = lru(20);
 const passFor = (i) => passLru(i, async () => {
   const id = S.articles[i].id;

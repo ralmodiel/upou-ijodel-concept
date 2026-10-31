@@ -4,7 +4,7 @@ import { join } from "path";
 export const SITE = (process.env.SITE_URL || "https://ralmodiel.github.io/upou-ijodel-concept").replace(/\/+$/, ""); // default is the current POC Pages URL: set SITE_URL for the UPOU deployment
 const NAME = "International Journal on Open and Distance e-Learning";
 const DESC = "IJODeL: open-access scholarly articles on open and distance e-learning. Browse, search and read 116 chapters by issue, topic and author.";
-const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+export const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const clip = (s, n = 155) => { s = String(s || "").replace(/\s+/g, " ").trim(); return s.length <= n ? s : s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…"; };
 const m = (k, v, a = "name") => `<meta ${a}="${k}" content="${esc(v)}">`;
 const IMG = () => [m("og:image", SITE + "/img/social.png", "property"), m("og:image:width", "1200", "property"), m("og:image:height", "630", "property"), m("og:image:alt", "The IJODeL home page: International Journal on Open and Distance e-Learning", "property"), m("twitter:image", SITE + "/img/social.png")].join("\n");
@@ -42,7 +42,7 @@ export function seoPlugin() {
       const ver = (readFileSync(join(dist, "index.html"), "utf8").match(/assets\/index-([^".]+)\.js/) || [, Date.now()])[1];
       writeFileSync(join(dist, "sw.js"), readFileSync(join(import.meta.dirname, "sw.tpl.js"), "utf8").replace("__VER__", ver).replace("[/*PRE*/]", JSON.stringify(pre)));
       // external redirect file: inline script would need a CSP hash
-      writeFileSync(join(dist, "r.js"), `var s=document.currentScript;location.replace(s.src.replace(/r\\.js$/,"")+"#/read/"+s.dataset.id);\n`);
+      writeFileSync(join(dist, "r.js"), `var s=document.currentScript;if(/^\\d+$/.test(s.dataset.id))location.replace(s.src.replace(/r\\.js$/,"")+"#/read/"+s.dataset.id);\n`);
       const csp = readFileSync(join(import.meta.dirname, "..", "index.html"), "utf8").match(/<meta http-equiv="Content-Security-Policy"[^>]*>/)[0];
       // round 88: Trusted Types stay report-only (worker URL, three/3d-force-graph innerHTML break under enforcement)
       // rounds 86/93: response headers for hosts that read a _headers file (Netlify, Cloudflare Pages); GitHub Pages ignores it (docs/hosting.md)

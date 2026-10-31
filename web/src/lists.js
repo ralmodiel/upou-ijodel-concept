@@ -1,0 +1,3 @@
+// Stored view lists: at most 20, names trimmed to 60 characters, a repeated name gets " (2)", " (3)" ...
+export const MAX_LISTS = 20, NAME_MAX = 60;
+export const normLists = (ls) => { const seen = new Set(); return ls.slice(0, MAX_LISTS).map((l) => { const base = l.name.trim().slice(0, NAME_MAX) || "Untitled list"; let name = base, k = 2; while (seen.has(name)) name = base.slice(0, NAME_MAX - 4 - String(k).length) + ` (${k++})`; seen.add(name); return name === l.name ? l : { ...l, name }; }); };

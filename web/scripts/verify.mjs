@@ -16,6 +16,8 @@ for (const [name, files, max] of [
   ["CSS", assets.filter((f) => f.endsWith(".css")), 11], // R147: budgets = measured (CSS 10, data 206 KB gz, 2026-10-31) + 5%
   ["startup data", ["articles.json", "issues.json", "chunks.json"].map((f) => path.join(dist, "index", f)), 217],
 ]) { const kb = sum(files); check(kb <= max, `${name} ${kb} KB gz (budget ${max})`); }
+// R216: the service worker installs everything in PRE (texts.json included): its gzip total stays within the measured 724 KB (2026-10-31) + 5%
+{ const pre = JSON.parse(fs.readFileSync(path.join(dist, "sw.js"), "utf8").match(/PRE = (\[.*?\])[,;]/)[1]), kb = Math.round(pre.filter((f) => f !== "./").reduce((s, f) => s + gz(path.join(dist, f)), 0)); check(kb <= 760, `service worker precache ${kb} KB gz over ${pre.length} files (budget 760)`); }
 const reads = fs.readdirSync(path.join(dist, "read")).filter((d) => fs.existsSync(path.join(dist, "read", d, "index.html")));
 const locs = (fs.readFileSync(path.join(dist, "sitemap.xml"), "utf8").match(/<loc>[^<]*\/read\/[^<]+<\/loc>/g) || []).length;
 check(reads.length > 0 && locs === reads.length, `sitemap read urls ${locs} = read pages ${reads.length}`);
@@ -27,6 +29,9 @@ for (const f of htmls) {
   if (s.includes("ojs_brand")) brand++;
   for (const [, u] of s.matchAll(/(?:src|href)="([^"#?]+)"/g)) if (!/^[a-z]+:/.test(u) && !u.endsWith("/") && !fs.existsSync(path.resolve(path.dirname(f), u))) dead.push(path.relative(dist, f) + " -> " + u);
 }
+{ const { esc } = await import(path.join(web, "scripts/seo.mjs")), h = esc('"><script>x'); check(!/["<>]/.test(h), `R218 esc() leaves no raw quote or angle bracket in a hostile title (${h})`); }
+const ids = reads.filter((d) => !/^\d+$/.test(d)), rj = fs.readFileSync(path.join(dist, "r.js"), "utf8"), badId = htmls.slice(1).filter((f) => !/<script src="\.\.\/\.\.\/r\.js" data-id="\d+"><\/script>/.test(fs.readFileSync(f, "utf8")));
+check(!ids.length && !badId.length && rj.includes("/^\\d+$/.test"), `R219 r.js tests for digits; every read page data-id is digits (${badId.length} bad pages, ${ids.length} bad dirs)`);
 check(ld > 0 && !ldBad, `JSON-LD blocks parse (${ld} found, ${ldBad} bad)`);
 check(!brand && !assets.some((f) => fs.readFileSync(f, "latin1").includes("ojs_brand")), "no ojs_brand references in dist");
 for (const src of fs.readdirSync(path.join(web, "src"))) for (const [, u] of fs.readFileSync(path.join(web, "src", src), "utf8").matchAll(/asset\("([^"]+)"\)/g)) if (!fs.existsSync(path.join(dist, u))) dead.push(`src/${src} -> ${u}`);

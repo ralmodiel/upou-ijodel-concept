@@ -37,4 +37,12 @@ for (const [name, choice, want] of [["re-ask, allow lists again: old list kept",
   const m = await import(`${f}?${i++}`);
   await w(name, () => { assert.equal(m.pref.get("ijodel-lists"), null); m.setConsent(choice); assert.equal(localStorage.getItem("ijodel-lists"), want); assert.equal(JSON.parse(localStorage.getItem("ijodel-consent")).v, m.NOTICE); });
 }
+// R210: stored lists are capped at 20, names at 60, repeated names numbered
+{
+  const { normLists } = await import(pathToFileURL(path.resolve(import.meta.dirname, "../src/lists.js")).href), mk = (name, k = 0) => ({ id: "l" + k, name, items: [] });
+  await w("30 lists -> 20", () => assert.equal(normLists(Array.from({ length: 30 }, (_, k) => mk("L" + k, k))).length, 20));
+  await w("200-char name -> 60", () => assert.equal(normLists([mk("x".repeat(200))])[0].name.length, 60));
+  await w("two Mine -> Mine, Mine (2)", () => assert.deepEqual(normLists([mk("Mine"), mk("Mine", 1)]).map((l) => l.name), ["Mine", "Mine (2)"]));
+  await w("two 60-char names stay unique and <= 60", () => { const r = normLists([mk("y".repeat(60)), mk("y".repeat(60), 1)]).map((l) => l.name); assert.ok(r[0] !== r[1] && r[1].length <= 60); });
+}
 console.log(`${n} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);
