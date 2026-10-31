@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 //   (undo/redo never needs either: its history lives in memory for the visit)
 //   model: download of the semantic-search model from Hugging Face (a third party sees the visitor's IP)
 //   counter: the journal's Flag Counter visit counter (flagcounter.me counts visitors by IP and country)
-const K = "ijodel-consent", mem = new Map(), subs = new Set();
+const K = "ijodel-consent", mem = new Map(), subs = new Set(), parsed = new Map();
 // R199: privacy notice version. Raise it when Legal.jsx's Privacy changes what is stored or sent: older records then read as
 // "not decided" and the banner asks again (their stored data stays until the new choice, which keeps or removes it as usual).
 // Records from before versioning (no v) count as version 1.
@@ -29,7 +29,7 @@ export function setConsent(v) {
 const dropModelCache = () => { try { ["transformers-cache", "experimental_transformers-hash-cache"].forEach((n) => caches?.delete(n)); indexedDB?.deleteDatabase("ijodel"); } catch { /* ignore */ } };
 // Forget everything: the choice, every ijodel-* key in both storages, the visit's memory copies and the model stores; App's syncSW
 // effect (on consent.prefs) then unregisters the service worker and its ijodel-offline-* caches.
-export const forgetConsent = () => { c = null; mem.clear(); dropModelCache(); try { [localStorage, sessionStorage].forEach((s) => Object.keys(s).filter((k) => k.startsWith("ijodel-")).forEach((k) => s.removeItem(k))); } catch { /* ignore */ } subs.forEach((f) => f()); };
+export const forgetConsent = () => { c = null; mem.clear(); parsed.clear(); dropModelCache(); try { [localStorage, sessionStorage].forEach((s) => Object.keys(s).filter((k) => k.startsWith("ijodel-")).forEach((k) => s.removeItem(k))); } catch { /* ignore */ } subs.forEach((f) => f()); };
 export function useConsent() {
   const [, tick] = useState(0);
   useEffect(() => { const f = () => tick((n) => n + 1); subs.add(f); return () => subs.delete(f); }, []);
@@ -39,6 +39,8 @@ export function useConsent() {
 export const pref = {
   get(k) { const v = allow(cls(k)) ? (() => { try { return localStorage.getItem(k); } catch { return null; } })() : mem.get(k) ?? null; return v && v.length > 200000 ? null : v; }, // oversized: ignore
   set(k, v) { mem.set(k, v); if (allow(cls(k))) { try { localStorage.setItem(k, v); } catch { /* private mode */ } } },
+  // R226: JSON value, parsed once per stored string (every card's + button reads the lists); null when unset. Do not mutate the result.
+  json(k) { const v = this.get(k); if (parsed.get(k)?.[0] !== v) parsed.set(k, [v, v ? JSON.parse(v) : null]); return parsed.get(k)[1]; },
 };
 
 // R144/R145: modal dialog behaviour shared by the Find filters and Cookie settings dialogs: focus moves in, Tab wraps inside, closing returns focus to the opener.

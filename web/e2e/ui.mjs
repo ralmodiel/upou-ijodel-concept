@@ -490,6 +490,34 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
   const o = await cx.newPage(); await o.goto(U + "/issues"); await o.waitForSelector("h1"); await cx.setOffline(true); await o.waitForTimeout(500);
   const on = await o.getByText("You are offline. Pages already opened").isVisible(); await cx.setOffline(false); await o.waitForTimeout(500);
   ok("R215 offline bar shows when offline and hides when back online", on && !(await o.getByText("You are offline. Pages already opened").isVisible())); await cx.close(); }
+{ const cx = await b.newContext({ viewport: { width: 1400, height: 1000 } }), o = await cx.newPage(); // R220 undo/redo x6, storage-free (no consent)
+  await o.goto(U + "/advanced"); await o.waitForSelector('aside[aria-label="Best suggestions"] button'); await o.waitForTimeout(800);
+  const st = () => o.evaluate(() => JSON.stringify([...document.querySelectorAll("[data-chip]")].map((e) => e.textContent))), s0 = await st();
+  for (let i = 0; i < 6; i++) { await o.locator('aside[aria-label="Best suggestions"] button:not([aria-label^=Dismiss])').first().click(); await o.waitForTimeout(250); }
+  const s6 = await st(); await o.locator("body").click({ position: { x: 5, y: 5 } });
+  for (let i = 0; i < 6; i++) { await o.keyboard.press("Control+z"); await o.waitForTimeout(150); } const su = await st();
+  for (let i = 0; i < 6; i++) { await o.keyboard.press("Control+y"); await o.waitForTimeout(150); }
+  ok("R220 6 adds, 6 Ctrl+Z = initial, 6 redos = final, nothing stored", s6 !== s0 && su === s0 && (await st()) === s6 && !(await o.evaluate(() => localStorage.getItem("ijodel-adv")))); await cx.close(); }
+{ const cx = await b.newContext({ viewport: { width: 1400, height: 1000 } }); await cx.addInitScript(() => { try { if (!localStorage.getItem("ijodel-consent")) localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true })); } catch {} }); // R221 share round trip
+  await cx.grantPermissions(["clipboard-read", "clipboard-write"], { origin: "http://localhost:4173" }); const o = await cx.newPage(); await o.goto(U + "/advanced"); await o.waitForSelector('aside[aria-label="Best suggestions"] span[draggable=true]'); await o.waitForTimeout(800);
+  const box = (a) => o.locator(`xpath=//h2[normalize-space()="${a}"]/ancestor::div[contains(@class,"rounded-xl")][1]`);
+  for (const [i, a] of [[0, "Required"], [1, "Expand"], [2, "Exclude"]]) { await o.locator('aside[aria-label="Best suggestions"] span[draggable=true]').nth(i).dragTo(box(a)); await o.waitForTimeout(300); }
+  await o.getByLabel("How the Expand filters apply").selectOption("one"); await o.waitForTimeout(300);
+  const A = await o.evaluate(() => localStorage.getItem("ijodel-adv")); await o.getByRole("button", { name: /Share link/ }).click(); await o.waitForTimeout(300);
+  const url = await o.evaluate(() => navigator.clipboard.readText()), c2 = await b.newContext(); await c2.addInitScript(() => localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true })));
+  const q = await c2.newPage(); await q.goto(url); await q.waitForTimeout(1200); const B = await q.evaluate(() => localStorage.getItem("ijodel-adv")), m = await q.evaluate(() => localStorage.getItem("ijodel-adv-mode"));
+  ok("R221 share link in a new context: same chips in the same areas, same mode", A === B && m === "one" && Object.values(JSON.parse(A)).flat().length === 3, `(${m})`); await cx.close(); await c2.close(); }
+{ const cx = await b.newContext({ viewport: { width: 1400, height: 1000 } }), o = await cx.newPage(); // R224 Levels <-> ticked options (fresh page: earlier map checks leave 3D/fullscreen state)
+  await o.goto(U + "/maps/pub/3"); await o.waitForSelector("svg [data-node]"); await o.waitForTimeout(600);
+  const T = { rel: 2, rec: 2, tag: 1, tagrel: 1, issue: 5, category: 3, author: 4 }, K = ["rel", "rec", "tag", "tagrel", "issue", "category", "author"]; let good = true, prev = 0, log = [];
+  for (let lv = 1; lv <= 5; lv++) { await o.getByLabel("Levels").selectOption(String(lv)); await o.waitForTimeout(900);
+    const ch = (await o.evaluate(() => [...document.querySelectorAll("fieldset input[type=checkbox]")].map((i) => i.checked))).slice(0, 7), nodes = await o.locator("svg [data-node]").count();
+    good &&= JSON.stringify(ch) === JSON.stringify(K.map((k) => k !== "tagrel" && T[k] <= lv)) && nodes >= prev; prev = nodes; log.push(`${lv}:${nodes}`); }
+  ok("R224 Levels 1..5 tick exactly the TIER options; node count non-decreasing", good, log.join(" ")); await cx.close(); }
+{ const cx = await b.newContext({ viewport: { width: 390, height: 844 } }), o = await cx.newPage(); // R225 back to top (phone: libre's results run past 2 screens)
+  await o.goto(U + "/search/libre"); await o.waitForSelector("text=chapters for"); await o.waitForTimeout(600); await o.evaluate(() => scrollTo(0, 2500)); await o.waitForTimeout(400);
+  const btn = o.getByRole("button", { name: "Back to top" }), shown = await btn.isVisible(); if (shown) { await btn.focus(); await o.keyboard.press("Enter"); await o.waitForTimeout(400); }
+  ok("R225 Back to top shows after 2500 px; Enter -> scrollY 0, focus on main", shown && await o.evaluate(() => scrollY === 0 && document.activeElement?.id === "main")); await cx.close(); }
 ok("no page errors (rounds 38-46)", errs.length === 0, errs.slice(0, 2).join(" | "));
 ok("no CSP violations by the end (model load included)", !csp.length, csp[0]?.slice(0, 120) ?? "");
 await b.close(); process.exit(bad ? 1 : 0);

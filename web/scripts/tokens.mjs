@@ -11,6 +11,8 @@ for (const [f, s] of [["App.jsx", "<p>Nothing found"], ["App.jsx", "This list is
 // R202/R203: no bare #000 in Maps.jsx; no text-[Npx] literals (use the type scale)
 if (/#000\b/.test(src("Maps.jsx"))) odd.push("Maps.jsx has #000");
 for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".jsx"))) if (/text-\[\d+px\]/.test(src(f))) odd.push(f + " has text-[Npx]");
+// R222: border radii come from rounded-md, rounded-xl and rounded-full only
+for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".jsx"))) for (const m of src(f).match(/\brounded-(lg|2xl|3xl|sm)\b/g) || []) odd.push(f + " has " + m);
 if (odd.length) console.log(`FAIL Icon stroke widths outside {1.5, 2} or empty states off the shared card: ${odd.join(", ")}`);
 if (!fs.existsSync(bf)) { fs.writeFileSync(bf, JSON.stringify({ arbitrary: n }) + "\n"); console.log(`baseline recorded: ${n} arbitrary values`); process.exit(0); }
 const base = JSON.parse(fs.readFileSync(bf, "utf8")).arbitrary;

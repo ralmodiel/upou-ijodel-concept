@@ -52,10 +52,11 @@ const tagTo = (t) => "/tag/" + encodeURIComponent(t);
 const tagN = (t) => { const S = window.__S; S.tagN ||= S.articles.reduce((m, x) => { x.subjects.forEach((s) => { m[s] = (m[s] || 0) + 1; }); return m; }, {}); return S.tagN[t] || 0; };
 // Cards can be dragged into the Advanced Search areas as a chapter filter.
 const dragChip = (a) => (e) => { e.dataTransfer.setData("text/chip", JSON.stringify({ k: "pub", v: a.id, l: a.title })); e.dataTransfer.effectAllowed = "copyMove"; };
-const store = (k, v) => { try { if (v === undefined) { const a = JSON.parse(pref.get(k) || "[]"); return Array.isArray(a) ? a.slice(0, 200) : []; } pref.set(k, JSON.stringify(v)); } catch { return []; } };
-const recents = () => store("ijodel-recent").filter((x) => typeof x === "string" && x.length < 200);
+const store = (k, v) => { try { if (v === undefined) { const a = pref.json(k) ?? []; return Array.isArray(a) ? a.slice(0, 200) : []; } pref.set(k, JSON.stringify(v)); } catch { return []; } };
+// R228: a poisoned store renders no more rows than a write keeps (10 recent, 30 saved)
+const recents = () => store("ijodel-recent").filter((x) => typeof x === "string" && x.length < 200).slice(0, 10);
 const remember = (q) => store("ijodel-recent", pushUniq(recents(), q, 10));
-const saved = () => store("ijodel-saved").filter((x) => typeof x === "string" && x.length < 200);
+const saved = () => store("ijodel-saved").filter((x) => typeof x === "string" && x.length < 200).slice(0, 30);
 // R193: one dashed card for every empty state (no results, empty list, nothing to map, no chapter fits); tokens.mjs checks the four use it
 export const EMPTY = "rounded-xl border border-dashed border-line p-8 text-center text-ink-2";
 export const clip = (t, n) => (t.length > n ? t.slice(0, n).replace(/\s\S*$/, "") + "…" : t);
@@ -510,7 +511,7 @@ function Group({ kind, id }) {
 
 const hl = (t, q) => { const w = (q || "").toLowerCase().match(/[a-z0-9]{3,}/g); return w ? t.split(new RegExp("(" + w.join("|") + ")", "ig")).map((s, i) => i % 2 ? <mark key={i} className="rounded bg-sky/60 px-0.5">{s}</mark> : s) : t; };
 export function Passage({ p, small, id }) {
-  return p ? <div className={`border-t border-line bg-sky/20 text-left ${small ? "px-3 py-2" : "mt-3 rounded-lg border px-3 py-2"}`} role="group" aria-label="Best-fit passage">
+  return p ? <div className={`border-t border-line bg-sky/20 text-left ${small ? "px-3 py-2" : "mt-3 rounded-md border px-3 py-2"}`} role="group" aria-label="Best-fit passage">
     <p className="flex items-baseline gap-2 text-2xs font-bold uppercase tracking-wide text-ink-3">Best passage · PDF page {p.page}{id && <Link to={`/read/${id}/p/${p.page}/${encodeURIComponent(p.terms || "")}`} className="ml-auto normal-case tracking-normal text-link hover:underline">Show in chapter</Link>}</p>
     <p className={`mt-0.5 leading-snug text-ink-2 ${small ? "line-clamp-3 text-xs" : "text-sm"}`}>{hl(p.snip, p.terms)}</p></div> : null;
 }
@@ -527,7 +528,7 @@ export const Card = memo(function Card({ a, q, qa, terms, extra }) {
       </div>
       <Passage p={a.passage} id={a.id} />
       {extra}
-      {qa && qa !== "off" && <div className="mt-3 overflow-hidden rounded-lg border border-line"><QA a={a} mode={qa} terms={terms} /></div>}</div>
+      {qa && qa !== "off" && <div className="mt-3 overflow-hidden rounded-md border border-line"><QA a={a} mode={qa} terms={terms} /></div>}</div>
     </li>
   );
 });
@@ -809,6 +810,12 @@ function NotFound({ route }) {
 }
 // R204/R205: "/" focuses the main search box, "?" lists the shortcuts; neither fires in a field, with a modifier, or over another dialog
 const KEYS = [["/", "Focus the search box"], ["Ctrl+Z / Ctrl+Shift+Z", "Undo / redo on the map and in Advanced search"], ["Arrow keys, Enter", "Move between map nodes; Enter explores from the selected one"], ["Alt+Left / Alt+Right", "Step through the chips of an Advanced search area"], ["?", "Show this list"]];
+// R225: after two screens of scrolling, a Back to top button returns to the top and puts focus on <main>
+function ToTop() {
+  const [on, setOn] = useState(false);
+  useEffect(() => { const f = () => setOn(scrollY > 2 * innerHeight); f(); addEventListener("scroll", f, { passive: true }); return () => removeEventListener("scroll", f); }, []);
+  return on && <button type="button" aria-label="Back to top" onClick={() => { scrollTo(0, 0); document.getElementById("main")?.focus({ preventScroll: true }); }} className="fixed bottom-4 right-4 z-30 min-h-11 rounded-full bg-action-fill px-4 text-sm font-bold text-white shadow hover:bg-action-2-fill print:hidden">↑ Top</button>;
+}
 function Shortcuts() {
   const d = useRef(null);
   useEffect(() => {
@@ -876,6 +883,7 @@ export default function App() {
         <p className="px-4 pb-4 pt-1 text-center text-xs text-white/65">Proof of concept: summaries, questions and answers, and related-reading notes are AI-generated, so check the original. · <a href="#/about" className="underline hover:text-white">About</a> · <a href="#/privacy" className="underline hover:text-white">Privacy</a> · <button type="button" onClick={openCookieSettings} className="inline-block py-3 underline hover:text-white">Cookie settings</button></p>
       </footer>
       <CookieConsent />
+      <ToTop />
       <Shortcuts />
     </>
   );

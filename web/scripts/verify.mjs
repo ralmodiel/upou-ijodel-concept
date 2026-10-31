@@ -17,7 +17,8 @@ for (const [name, files, max] of [
   ["startup data", ["articles.json", "issues.json", "chunks.json"].map((f) => path.join(dist, "index", f)), 217],
 ]) { const kb = sum(files); check(kb <= max, `${name} ${kb} KB gz (budget ${max})`); }
 // R216: the service worker installs everything in PRE (texts.json included): its gzip total stays within the measured 724 KB (2026-10-31) + 5%
-{ const pre = JSON.parse(fs.readFileSync(path.join(dist, "sw.js"), "utf8").match(/PRE = (\[.*?\])[,;]/)[1]), kb = Math.round(pre.filter((f) => f !== "./").reduce((s, f) => s + gz(path.join(dist, f)), 0)); check(kb <= 760, `service worker precache ${kb} KB gz over ${pre.length} files (budget 760)`); }
+{ const pre = JSON.parse(fs.readFileSync(path.join(dist, "sw.js"), "utf8").match(/PRE = (\[.*?\])[,;]/)[1]), kb = Math.round(pre.filter((f) => f !== "./").reduce((s, f) => s + gz(path.join(dist, f)), 0)); check(kb <= 760, `service worker precache ${kb} KB gz over ${pre.length} files (budget 760)`);
+  check(!pre.some((f) => /Graph3D|three|force-graph/i.test(f)), "R227 sw.js PRE has no 3D chunk (loaded on demand)"); }
 const reads = fs.readdirSync(path.join(dist, "read")).filter((d) => fs.existsSync(path.join(dist, "read", d, "index.html")));
 const locs = (fs.readFileSync(path.join(dist, "sitemap.xml"), "utf8").match(/<loc>[^<]*\/read\/[^<]+<\/loc>/g) || []).length;
 check(reads.length > 0 && locs === reads.length, `sitemap read urls ${locs} = read pages ${reads.length}`);

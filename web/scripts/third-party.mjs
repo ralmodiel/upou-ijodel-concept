@@ -30,6 +30,12 @@ async function run(block) {
   ok("Flag Counter requested without a Referer", !!fc && !(await fc.allHeaders()).referer, fc ? "" : "no request");
   const img = await p.locator('img[src*="flagcounter"]').evaluate((i) => i.complete && i.naturalWidth).catch(() => 0);
   ok("Flag Counter image renders under no-referrer", img > 0, `(${img}px)`);
+  // R229: withdrawing the counter in Cookie settings removes the image at once (no reload) and nothing asks flagcounter again
+  await p.getByRole("button", { name: "Cookie settings" }).first().click(); await p.locator("#c-counter").click(); await p.getByRole("button", { name: "Save choices" }).click();
+  const t = reqs.length; await p.waitForTimeout(300); const left = await p.locator('img[src*="flagcounter"]').count();
+  for (const h of ["#/issues", "#/"]) { await p.evaluate((h) => { location.hash = h; }, h); await p.waitForTimeout(700); } // in-page: the init script would re-grant on a reload
+  const late = reqs.slice(t).filter((r) => /flagcounter/.test(r.url())).length;
+  ok("R229 counter withdrawn: img removed without reload, no later flagcounter request", left === 0 && late === 0 && !JSON.parse(await p.evaluate(() => localStorage.getItem("ijodel-consent"))).counter, `(img ${left}, requests ${late})`);
   await c.close(); }
 for (const [name, pat] of [["jsDelivr", /cdn\.jsdelivr\.net/], ["Hugging Face", /huggingface\.co|hf\.co/]]) {
   const { c, p, state } = await run(pat);

@@ -22,7 +22,7 @@ function Settings({ initial, onClose }) {
   }, []);
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={onClose}>
-      <div ref={box} role="dialog" aria-modal="true" aria-label="Cookie and privacy settings" onClick={(e) => e.stopPropagation()} className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-surface p-5 shadow-2xl">
+      <div ref={box} role="dialog" aria-modal="true" aria-label="Cookie and privacy settings" onClick={(e) => e.stopPropagation()} className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-surface p-5 shadow-2xl">
         <h2 className="font-serif text-2xl text-ink">Cookie and privacy settings</h2>
         <p className="mt-1 text-sm text-ink-2">This site has no accounts, no analytics and no advertising. Only if you allow the visit counter does a third-party tracker, Flag Counter, see your visit. Choose what it may keep on your device or fetch from other services; every item below is off until you switch it on. Only your choice itself is remembered on this device, as one small record, so we do not ask again. You can change this at any time from the footer.</p>
         <div className="mt-3">
@@ -47,7 +47,7 @@ export function CookieConsent() {
   return (
     <>
       {!c && !open && (
-        <div role="dialog" aria-label="Cookie and privacy choices" className="fixed inset-x-3 top-3 z-40 sm:bottom-3 sm:top-auto print:hidden mx-auto max-w-3xl rounded-2xl border border-line bg-surface p-4 shadow-2xl sm:p-5">
+        <div role="dialog" aria-label="Cookie and privacy choices" className="fixed inset-x-3 top-3 z-40 sm:bottom-3 sm:top-auto print:hidden mx-auto max-w-3xl rounded-xl border border-line bg-surface p-4 shadow-2xl sm:p-5">
           <p className="text-sm text-ink-2"><b className="text-ink">Your privacy.</b> We run no analytics or advertising of our own. With your permission we keep your view lists and filters on this device, download a search model from Hugging Face, and show the journal’s visit counter (Flag Counter, a third-party tracker that counts visits by country and may set its own cookie). <a href="#/privacy" className="font-medium text-link underline">Read the privacy notice</a>.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={() => setConsent({ prefs: true, lists: true, model: true, counter: true })} className="min-h-11 rounded-full bg-action-fill px-5 text-sm font-bold text-white hover:bg-action-2-fill">Accept all</button>

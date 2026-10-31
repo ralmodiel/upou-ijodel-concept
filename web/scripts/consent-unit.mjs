@@ -45,4 +45,12 @@ for (const [name, choice, want] of [["re-ask, allow lists again: old list kept",
   await w("two Mine -> Mine, Mine (2)", () => assert.deepEqual(normLists([mk("Mine"), mk("Mine", 1)]).map((l) => l.name), ["Mine", "Mine (2)"]));
   await w("two 60-char names stay unique and <= 60", () => { const r = normLists([mk("y".repeat(60)), mk("y".repeat(60), 1)]).map((l) => l.name); assert.ok(r[0] !== r[1] && r[1].length <= 60); });
 }
+// R226: 1000 pref.json reads of a 100 KB stored value parse it once; a new value is parsed again
+{
+  globalThis.localStorage = box(); const m = await import(`${f}?${i++}`); m.setConsent({ prefs: true, lists: true });
+  const big = JSON.stringify(Array.from({ length: 10000 }, (_, k) => "query " + k)), P = JSON.parse; let parses = 0, last;
+  localStorage.setItem("ijodel-saved", big); JSON.parse = (...a) => { parses++; return P(...a); };
+  try { for (let k = 0; k < 1000; k++) m.pref.json("ijodel-saved"); localStorage.setItem("ijodel-saved", '["x"]'); last = m.pref.json("ijodel-saved"); } finally { JSON.parse = P; }
+  await w(`1000 pref.json on ${Math.round(big.length / 1024)} KB: parsed ${parses} times (want 2 incl. the changed value)`, () => { assert.equal(parses, 2); assert.deepEqual(last, ["x"]); });
+}
 console.log(`${n} checks, ${bad} FAIL`); process.exit(bad ? 1 : 0);
