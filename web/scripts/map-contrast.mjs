@@ -10,4 +10,16 @@ const w = cr(stroke, "#ffffff");
 console.log(`stroke ${stroke} vs white ${w.toFixed(2)}; ` + Object.entries(fills).map(([k, v]) => `${k} ${cr(stroke, v).toFixed(1)}`).join(", "));
 // non-colour cue: the in-search stroke is dashed, so it reads apart from every fill without relying on hue
 const dash = /strokeDasharray=\{inSearch\(n\)/.test(src);
-console.log(`2 checks, ${(w >= 3 ? 0 : 1) + (dash ? 0 : 1)} FAIL${dash ? "" : " (no dash cue)"}`); process.exit(w >= 3 && dash ? 0 : 1);
+console.log(`2 checks, ${(w >= 3 ? 0 : 1) + (dash ? 0 : 1)} FAIL${dash ? "" : " (no dash cue)"}`); process.exitCode = w >= 3 && dash ? 0 : 1;
+// R162: the generated cover's "IJODeL · Vol. N" line (~10% down, white text) sits under the top scrim; every PAL stop, darkened by the
+// scrim alpha there, must reach 4.5:1 against white (WCAG 1.4.3). Reads PAL and coverBg from App.jsx.
+{
+  const app = fs.readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const stops = [...app.match(/const PAL = \{[^\n]*\}/)[0].matchAll(/#[0-9a-f]{6}/g)].map((m) => m[0]);
+  const m = app.match(/to bottom, rgb\(0 0 0 \/ (\.\d+)\)(?: (\d+)%)?, transparent (\d+)%/);
+  const [A, P, E] = [+m[1], +(m[2] || 0), +m[3]], at = 10, a = at <= P ? A : A * Math.max(0, 1 - (at - P) / (E - P));
+  const dark = (h) => "#" + [1, 3, 5].map((i) => Math.round(parseInt(h.slice(i, i + 2), 16) * (1 - a)).toString(16).padStart(2, "0")).join("");
+  const low = stops.map((h) => [h, cr("#ffffff", dark(h))]).filter(([, r]) => r < 4.5);
+  console.log(`cover top scrim alpha ${a.toFixed(2)} at ${at}%: ${stops.length} PAL stops, ${low.length} below 4.5` + (low.length ? " (" + low.map(([h, r]) => h + " " + r.toFixed(1)).join(", ") + ")" : ""));
+  if (low.length) process.exitCode = 1;
+}

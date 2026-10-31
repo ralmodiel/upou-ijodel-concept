@@ -43,4 +43,11 @@ for (const [label, r, fresh, fs] of [["home, fresh visitor", "/", true], ["home,
   const inView = !!box && box.y >= 0 && box.y + box.height <= 844; if (inView) await sb.click(); const jumped = inView && await q.evaluate(() => document.activeElement?.id === "adv-results" && document.activeElement.getBoundingClientRect().top < innerHeight);
   if (!jumped) { overlap++; console.log("SHOW RESULTS", JSON.stringify(box)); } else console.log("show-results button at", Math.round(box.y), "px, jumps to results");
   await c4.close(); }
-console.log(`${routes.length} routes, ${bad} overflow; 5 overlap probes, ${overlap} overlap`); bad += overlap; await b.close(); process.exit(bad ? 1 : 0);
+// R163: the quick tour card stays inside the viewport on every step. R165: on /maps the "Maps" tab is inside the nav's visible box.
+{ const c5 = await b.newContext({ viewport: { width: +(process.env.W || 390), height: 844 }, hasTouch: true, isMobile: true }); await c5.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); } catch {} }); const q = await c5.newPage();
+  await q.goto("http://localhost:4173/#/"); await q.waitForSelector('section[aria-label="Quick tour"]'); const out = [];
+  for (let i = 0; i < 5; i++) { const r = await q.evaluate(() => { const e = document.querySelector('section[aria-label="Quick tour"]').getBoundingClientRect(); return [e.left, e.right]; }); if (r[0] < 0 || r[1] > 390.5) out.push(`step ${i + 1} ${r.map(Math.round)}`); const nx = q.getByRole("button", { name: "Next" }); if (!(await nx.count())) break; await nx.click(); }
+  await q.goto("http://localhost:4173/#/maps"); await q.waitForTimeout(1200);
+  const t = await q.evaluate(() => { const n = document.querySelector('nav[aria-label="Main"]'), a = [...n.querySelectorAll("a")].find((x) => x.textContent.trim() === "Maps"), A = a.getBoundingClientRect(), N = n.getBoundingClientRect(); return A.left >= N.left - 0.5 && A.right <= N.right + 0.5; });
+  if (out.length || !t) { overlap++; console.log("TOUR/NAV", out.join("; "), "mapsTabVisible", t); } else console.log("tour inside viewport on every step; Maps tab visible in nav"); await c5.close(); }
+console.log(`${routes.length} routes, ${bad} overflow; 6 overlap probes, ${overlap} overlap`); bad += overlap; await b.close(); process.exit(bad ? 1 : 0);

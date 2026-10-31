@@ -34,6 +34,7 @@ const useHash = () => {
     const back = !keep && trail.at(-2)?.route === h; // an emblem click is forward even when it lands on the page two steps back
     const stay = keep && !back; keep = false;
     if (back) trail.pop(); else trail.push({ route: h, y: stay ? scrollY : 0 });
+    if (trail.length > 50) trail.shift(); // shortcut: back restores scroll for the last 49 routes only; fine for a session
     if (!stay) scrollTo(0, back ? trail.at(-1).y : 0);
   }, [h]);
   return h;
@@ -172,6 +173,8 @@ function MyList({ lid }) {
 }
 function Header({ route }) {
   const n = new Set(useLists().flatMap((l) => l.items)).size;
+  // the nav scrolls sideways on a phone: bring the active tab (the only a.bg-surface in it) into view
+  useEffect(() => { document.querySelector('nav[aria-label="Main"] a.bg-surface')?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [route]);
   const tab = (to, label, on) => <Link to={to} onMouseEnter={LOAD[to]} onFocus={LOAD[to]} onTouchStart={LOAD[to]} className={`inline-flex min-h-11 items-center rounded-full px-2.5 text-sm font-medium sm:px-4 ${on ? "bg-surface text-navy" : "text-white/90 hover:bg-white/10"}`}>{label}</Link>;
   return (
     <header className="text-white print:hidden">
@@ -199,7 +202,7 @@ const grad = (a, d = 150) => `linear-gradient(${d}deg, ${pal(a)[0]}, ${pal(a)[1]
 // Cover background: scrims under the title (bottom) and the volume line (top) keep white text >= 4.5:1 on the lightest palette colour;
 // odd seeds flip the palette so neighbours from one category don't look alike.
 const coverBg = (a, s) => { const [c0, c1] = pal(a), [x, y] = s % 2 ? [c1, c0] : [c0, c1];
-  return `linear-gradient(to top, rgb(0 0 0 / .55), rgb(0 0 0 / .45) 38%, transparent 72%), linear-gradient(to bottom, rgb(0 0 0 / .3), transparent 22%), linear-gradient(${130 + ((s >> 3) % 7) * 12}deg, ${x}, ${y})`; };
+  return `linear-gradient(to top, rgb(0 0 0 / .55), rgb(0 0 0 / .45) 38%, transparent 72%), linear-gradient(to bottom, rgb(0 0 0 / .5) 14%, transparent 30%), linear-gradient(${130 + ((s >> 3) % 7) * 12}deg, ${x}, ${y})`; };
 const ICON = {
   book: <><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" /><path d="M4 21V5" /></>,
   network: <><circle cx="5" cy="6" r="2" /><circle cx="19" cy="6" r="2" /><circle cx="12" cy="18" r="2" /><path d="M7 6h10M6 8l5 8M18 8l-5 8" /></>,
@@ -244,7 +247,7 @@ function Cover({ a, className = "", small }) {
       </svg>
       <Icon m={a.motif} className="absolute -bottom-[6%] -right-[6%] h-[62%] w-[62%] text-white/30" w={0.7} />
       <div aria-hidden="true" className="face relative z-[1] flex h-full flex-col p-[8%] text-white">
-        <span className="text-[4.4cqw] font-bold uppercase tracking-[0.14em] text-white/80">IJODeL · Vol. {a.issue.vol}</span>
+        <span className="text-[4.4cqw] font-bold uppercase tracking-[0.14em] text-white">IJODeL · Vol. {a.issue.vol}</span>
         <div className="mt-auto" />
         <div className="font-serif font-normal leading-[1.12]" style={{ fontSize: small ? "9cqw" : "8.6cqw", WebkitLineClamp: small ? 4 : 5, display: "-webkit-box", WebkitBoxOrient: "vertical", overflow: "hidden", textShadow: "0 1px 3px rgb(0 0 0 / .45)" }}>{a.title}</div>
         <span className="mt-[5%] line-clamp-1 text-[4.6cqw] text-white/85">{a.authors[0]?.split(",")[0]}{a.authors.length > 1 ? " et al." : ""} · {a.year}</span>
@@ -807,7 +810,8 @@ export default function App() {
   const consent = useConsent(), online = useOnline(), [upd, setUpd] = useState(null);
   useEffect(() => { syncSW(); }, [consent?.prefs]);
   // R157: once the index is in, fetch the Maps and Advanced chunks while idle so those tabs open at once; weak devices skip it
-  useEffect(() => { if (state === "ok" && !weakDevice()) (window.requestIdleCallback || setTimeout)(() => Object.values(LOAD).forEach((f) => f().catch(() => {})), { timeout: 2000 }); }, [state]);
+  // shortcut: a fixed 1.5 s wait stands in for "first results rendered" (they land in ~0.3 s on a capable device); upgrade to a render signal if that changes
+  useEffect(() => { if (state !== "ok" || weakDevice()) return; const t = setTimeout(() => (window.requestIdleCallback || setTimeout)(() => Object.values(LOAD).forEach((f) => f().catch(() => {})), { timeout: 2000 }), 1500); return () => clearTimeout(t); }, [state]);
   useEffect(() => { const f = (e) => setUpd(() => e.detail); addEventListener("ijodel-update", f); return () => removeEventListener("ijodel-update", f); }, []);
   // the semantic model is a third-party download: only with consent, and only once someone searches (box focus or a search route)
   useEffect(() => { if (state === "ok" && consent?.model && route.startsWith("/search/")) startModel(true); }, [state, consent?.model, route]);

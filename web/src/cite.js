@@ -9,7 +9,7 @@ const initials = (given) => given.split(/\s+/).filter(Boolean).map((w) => /^(ma|
 const name = (n) => {
   const [l, ...rest] = n.split(","); let sfx = "";
   const strip = (t) => t.split(/\s+/).filter((w) => SUFFIX.test(w) ? ((sfx = w.replace(/\.?$/, /^[js]r/i.test(w) ? "." : "")), false) : true).join(" ");
-  const last = strip(l.trim()), g = strip(rest.join(",").trim()), fix = (t) => t === t.toUpperCase() && /[A-Z]{2}/.test(t) ? t.toLowerCase().replace(/(^|[\s-])\S/g, (m) => m.toUpperCase()) : t;
+  const last = strip(l.trim()), g = strip(rest.join(",").trim()), fix = (t) => t === t.toUpperCase() && /[A-Z]{2}/.test(t) ? t.toLowerCase().replace(/(^|[\s-])\S/g, (m) => m.toUpperCase()).replace(/\b(Van|Von|Der|Den|De|Del|Dela|La|Le|Da|Di|Du)\s(?=\S)/g, (m) => m.toLowerCase()) : t;
   const out = g ? `${fix(last)}, ${initials(g)}` : fix(last);
   return sfx ? `${out}, ${sfx}` : out;
 };

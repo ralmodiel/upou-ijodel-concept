@@ -312,7 +312,8 @@ ok("lists: reorder", JSON.parse(await p.evaluate(() => localStorage.getItem("ijo
   const [j] = await Promise.all([p.waitForEvent("download"), p.getByRole("button", { name: "JSON", exact: true }).click()]);
   await p.getByRole("button", { name: "Copy share link" }).click(); await wait(); const link = await p.evaluate(() => navigator.clipboard.readText());
   await p.goto(link.replace(/^.*#/, U)); await p.waitForSelector("text=Shared view list"); ok("lists: share link opens the shared list", await p.locator("main li").count() === 2);
-  await p.goto(U + "/list/share/x/295,<img>,99999"); await p.waitForSelector("text=Shared view list"); ok("lists: shared link keeps only known chapters", /1 chapter\./.test(await p.locator("main p").first().innerText())); }
+  await p.goto(U + "/list/share/x/295,<img>,99999"); await p.waitForSelector("text=Shared view list"); ok("lists: shared link keeps only known chapters", /1 chapter\./.test(await p.locator("main p").first().innerText()));
+  await p.goto(U + "/list/share/x/3,3,999999,6"); await p.waitForSelector("text=Shared view list"); ok("lists: shared link drops duplicate and unknown ids (R161)", /2 chapters\./.test(await p.locator("main p").first().innerText())); }
 await p.goto(U + "/maps/pub/295"); await p.waitForSelector("svg g[data-node]"); await wait(500);
 { await p.getByLabel("Find a node on the map").fill(await p.locator("svg g[data-node][tabindex]").nth(3).getAttribute("aria-label").then((l) => l.split(": ")[1].slice(0, 12))); await p.keyboard.press("Enter"); await wait();
   ok("maps: node search selects and focuses a node", await p.evaluate(() => document.activeElement?.getAttribute("aria-pressed")) === "true");
@@ -366,6 +367,14 @@ await ctx.setOffline(true); await wait(300); ok("offline message", await p.getBy
   ok("65 results show matched-filter chips and no redundant Why panel", await p.locator("[data-matched]").count() > 0 && await p.getByText(/^Why #\d+\?$/).count() === 0); }
 { const c = await b.newContext(), p = await c.newPage(); await p.goto(U + "/"); await p.waitForSelector("nav[aria-label=Main]"); const got = p.waitForRequest(/assets\/Maps-.*\.js/, { timeout: 3000 }).then(() => true).catch(() => false);
   await p.locator("nav[aria-label=Main] a", { hasText: "Maps" }).hover(); ok("82 Maps chunk is fetched on tab hover (intent)", await got); await c.close(); }
+// R169: a chunk that keeps failing reloads the page exactly once, then the error boundary shows (role=alert)
+{ const c = await b.newContext(); await c.addInitScript(() => localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true }))); await c.route(/assets\/Maps-.*\.js/, (r) => r.abort()); const p = await c.newPage(); let navs = 0; p.on("framenavigated", (f) => { if (f === p.mainFrame()) navs++; });
+  await p.goto(U + "/maps"); await p.getByRole("alert").filter({ hasText: "Something went wrong" }).waitFor({ timeout: 8000 }).catch(() => {}); await wait(1500);
+  ok("169 failing chunk: one reload, then an error alert", navs === 2 && await p.getByRole("alert").filter({ hasText: "Something went wrong" }).count() === 1, "navigations " + navs); await c.close(); }
+// R164: the consent banner's choices share size, weight and shape (none is a link or smaller than the rest)
+{ const c = await b.newContext(), p = await c.newPage(); await p.goto(U + "/"); const d = p.getByRole("dialog", { name: "Cookie and privacy choices" }); await d.waitFor();
+  const st = await d.locator("button").evaluateAll((bs) => bs.map((x) => { const s = getComputedStyle(x); return [Math.round(x.getBoundingClientRect().height), s.fontSize, s.fontWeight, s.borderRadius, s.paddingLeft].join("|"); }));
+  ok("164 consent buttons share height, font size and weight, shape and padding", st.length === 4 && new Set(st).size === 1, st.join(" ; ")); await c.close(); }
 { const c = await b.newContext({ viewport: { width: 1200, height: 900 } }); await c.addInitScript(() => localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true })));
   const q = await c.newPage(); await q.goto(U + "/read/3"); await q.waitForSelector("h1"); await q.evaluate(() => navigator.serviceWorker.ready);
   await q.reload(); await q.waitForSelector("h1"); const t = await q.locator("h1").innerText(); await q.waitForTimeout(800);
