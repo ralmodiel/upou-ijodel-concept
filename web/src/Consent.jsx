@@ -22,7 +22,7 @@ function Settings({ initial, onClose }) {
   }, []);
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={onClose}>
-      <div ref={box} role="dialog" aria-modal="true" aria-label="Cookie and privacy settings" onClick={(e) => e.stopPropagation()} className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-surface p-5 shadow-2xl">
+      <div ref={box} role="dialog" aria-modal="true" aria-label="Cookie and privacy settings" onClick={(e) => e.stopPropagation()} className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-line bg-surface p-5 shadow-2xl">
         <h2 className="font-serif text-2xl text-ink">Cookie and privacy settings</h2>
         <p className="mt-1 text-sm text-ink-2">This site has no accounts, no analytics and no advertising. Only if you allow the visit counter does a third-party tracker, Flag Counter, see your visit. Choose what it may keep on your device or fetch from other services; every item below is off until you switch it on. Only your choice itself is remembered on this device, as one small record, so we do not ask again. You can change this at any time from the footer.</p>
         <div className="mt-3">

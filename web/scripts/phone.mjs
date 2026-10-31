@@ -50,4 +50,10 @@ for (const [label, r, fresh, fs] of [["home, fresh visitor", "/", true], ["home,
   await q.goto("http://localhost:4173/#/maps"); await q.waitForTimeout(1200);
   const t = await q.evaluate(() => { const n = document.querySelector('nav[aria-label="Main"]'), a = [...n.querySelectorAll("a")].find((x) => x.textContent.trim() === "Maps"), A = a.getBoundingClientRect(), N = n.getBoundingClientRect(); return A.left >= N.left - 0.5 && A.right <= N.right + 0.5; });
   if (out.length || !t) { overlap++; console.log("TOUR/NAV", out.join("; "), "mapsTabVisible", t); } else console.log("tour inside viewport on every step; Maps tab visible in nav"); await c5.close(); }
-console.log(`${routes.length} routes, ${bad} overflow; 6 overlap probes, ${overlap} overlap`); bad += overlap; await b.close(); process.exit(bad ? 1 : 0);
+// R253: footer text at 390 and 1300: no word broken across lines (2 client rects) and no element wider than its box
+for (const w of [390, 1300]) { const c6 = await b.newContext({ viewport: { width: w, height: 844 } }); await c6.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); } catch {} }); const q = await c6.newPage();
+  await q.goto("http://localhost:4173/#/"); await q.waitForSelector("footer"); await q.waitForTimeout(800);
+  const f = await q.evaluate(() => { const bad = [], t = document.createTreeWalker(document.querySelector("footer"), NodeFilter.SHOW_TEXT); for (let n; (n = t.nextNode());) for (const m of n.data.matchAll(/[^\s-]+/g)) { const r = document.createRange(); r.setStart(n, m.index); r.setEnd(n, m.index + m[0].length); if (r.getClientRects().length > 1) bad.push(m[0].slice(0, 20)); }
+    for (const e of document.querySelectorAll("footer *")) if (e.scrollWidth > e.clientWidth + 1 && e.clientWidth && getComputedStyle(e).display !== "inline") bad.push("<" + e.tagName.toLowerCase() + ">"); return bad; });
+  if (f.length) { overlap++; console.log("FOOTER", w, f.slice(0, 6).join(" | ")); } else console.log("footer at", w, "has no broken word or overflow"); await c6.close(); }
+console.log(`${routes.length} routes, ${bad} overflow; 7 overlap probes, ${overlap} overlap`); bad += overlap; await b.close(); process.exit(bad ? 1 : 0);

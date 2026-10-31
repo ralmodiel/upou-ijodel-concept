@@ -563,6 +563,18 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
   await o.goto(U + "/maps/pub/295"); await o.waitForSelector("svg g[data-node]"); const want = await o.locator("svg g[data-node]").evaluateAll((l) => l.filter((g) => g.getAttribute("aria-label").toLowerCase().includes("learn")).length);
   await o.getByRole("button", { name: "3D", exact: true }).click(); await o.waitForSelector("canvas", { timeout: 20000 }); await o.locator("summary", { hasText: "Node list" }).click(); await o.getByLabel("Filter the node list").fill("learn"); await o.waitForTimeout(300);
   ok("node-list filter on the 3D map keeps the same nodes as the 2D map", want > 0 && await o.getByRole("list", { name: "Nodes and their connections" }).locator("> li").count() === want, `want ${want}`); await cx.close(); }
+// batch 16 (fresh context): R250 Select-a-node options = clickable nodes, R254/R255 fullscreen focus and aria-pressed, R259 safe download name
+{ const cx = await b.newContext({ viewport: { width: 1400, height: 1500 }, acceptDownloads: true }); await cx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, lists: true, model: false })); if (!localStorage.getItem("ijodel-lists")) localStorage.setItem("ijodel-lists", JSON.stringify([{ id: "a", name: "../x", items: ["3", "10"] }])); } catch {} }); const o = await cx.newPage();
+  for (const r of ["/maps/pub/295", "/maps/tag/online%20learning"]) { await o.goto(U + r); await o.waitForSelector("svg g[data-node]"); await o.waitForTimeout(500);
+    const opts = await o.getByLabel("Select a node").locator("option").count() - 1, nodes = await o.locator("svg g[data-node][role=button]").count();
+    ok("R250 Select-a-node options equal the clickable nodes " + r, opts === nodes && nodes > 0, `${opts} vs ${nodes}`); }
+  await o.goto(U + "/maps/pub/295"); await o.waitForSelector("svg g[data-node]"); const fsb = o.getByRole("button", { name: /full screen/i }), thb = o.getByRole("button", { name: "Theater mode" });
+  const bx = await Promise.all([fsb.boundingBox(), thb.boundingBox()]); await thb.click(); const t1 = await thb.getAttribute("aria-pressed"); await thb.click();
+  ok("R255 theater and full-screen buttons expose aria-pressed and are >= 40 px", t1 === "true" && await thb.getAttribute("aria-pressed") === "false" && await fsb.getAttribute("aria-pressed") === "false" && bx.every((r) => r.width >= 40 && r.height >= 40));
+  await fsb.click(); await o.waitForTimeout(400); const pr = await fsb.getAttribute("aria-pressed"); await o.locator("svg g[data-node][role=button]").first().focus(); await o.evaluate(() => document.exitFullscreen()); await o.waitForTimeout(400);
+  ok("R254/R255 leaving full screen returns focus to the Full screen button (aria-pressed true while in)", await o.evaluate(() => !document.fullscreenElement) && pr === "true" && await o.evaluate(() => document.activeElement?.getAttribute("aria-label")) === "Full screen map", pr);
+  await o.goto(U + "/list/a"); await o.getByRole("button", { name: "JSON", exact: true }).waitFor(); const dl = o.waitForEvent("download"); await o.getByRole("button", { name: "JSON", exact: true }).click();
+  const nm = (await dl).suggestedFilename(); ok("R259 a list named ../x downloads as a safe file name", nm === "x.json", nm); await cx.close(); }
 // R238/R239: Trusted Types report-only sinks are the documented ones; any other CSP violation fails
 { const tt = viol.filter((v) => v[0] === "require-trusted-types-for"), other = viol.filter((v) => v[0] !== "require-trusted-types-for"), sinks = [...new Set(tt.map((v) => v[1]?.split(/[|\n]/)[0].slice(0, 40)))];
   console.log(`TT report-only: ${tt.length} events; sinks: ${sinks.join(" ; ")}`);

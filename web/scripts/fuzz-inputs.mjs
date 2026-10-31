@@ -21,6 +21,12 @@ async function check(name, hash, seed) {
 }
 for (const h of HASH) await check("hash " + h.slice(0, 60), h, []);
 for (const k of KEYS) for (const [i, v] of BAD.entries()) await check(`localStorage ${k} #${i}`, k === "ijodel-adv" || k === "ijodel-adv-mode" ? "/advanced" : k.includes("list") ? "/list" : k === "ijodel-cite" || k === "ijodel-text" ? "/read/3" : "/search", [[k, v]]);
+// R258: a 5,000-chip ijodel-adv with long values renders at most 50 chips per area, values cut to 200 chars
+{ const adv = JSON.stringify(Object.fromEntries([["req", 5000, 0], ["boost", 40, 900]].map(([a, n, len]) => [a, Array.from({ length: n }, (_, i) => ({ k: "tag", v: "t" + i + "x".repeat(len) }))]))); // under 200 KB: pref.get ignores bigger values outright
+  const c = await b.newContext(); await c.addInitScript(([s]) => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true })); localStorage.setItem("ijodel-adv", s); } catch {} }, [adv]);
+  const p = await c.newPage(); await p.goto(U + "#/advanced"); await p.waitForSelector("h1, h2"); await p.waitForTimeout(800);
+  const n = await p.locator("[data-chip]").count(), long = await p.locator("[data-chip]").evaluateAll((l) => l.filter((e) => e.textContent.length > 260).length);
+  ok("R258 poisoned 5,000-chip ijodel-adv renders <= 50 chips per area, none over the 200-char cap", n === 90 && long === 0, `${n} chips, ${long} long`); await c.close(); }
 // R141: a poisoned map seed falls back to the default seed (an svg with nodes), not "Nothing to map"
 for (const seed of ['{"kind":"tag","id":"zzz"}', '{"kind":"author","id":"x"}', '{"kind":"pub","id":"zzz"}']) {
   const c = await b.newContext(); await c.addInitScript(([s]) => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true })); localStorage.setItem("ijodel-map-seed", s); } catch {} }, [seed]);

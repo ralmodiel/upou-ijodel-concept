@@ -18,6 +18,8 @@ for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".jsx"))) for (cons
 // R243: tabular figures are global (index.css body); numbers are never formatted with a locale (one format: plain digits)
 if (!/body \{[^}]*tabular-nums/.test(fs.readFileSync(new URL("index.css", dir), "utf8"))) odd.push("index.css body lost tabular-nums");
 for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".jsx") || f.endsWith(".js"))) if (/toLocaleString|Intl\.NumberFormat/.test(src(f))) odd.push(f + " formats numbers with a locale");
+// R252: the consent and Advanced dialogs share one card (radius, border, surface, shadow)
+for (const f of ["Consent.jsx", "Advanced.jsx"]) for (const l of src(f).split("\n")) if (/role="dialog"/.test(l) && !/rounded-xl border border-line bg-surface[^"]* shadow-2xl/.test(l.replace(/ p-\d| sm:p-\d/g, ""))) odd.push(f + " dialog off the shared card");
 if (odd.length) console.log(`FAIL Icon stroke widths outside {1.5, 2} or empty states off the shared card: ${odd.join(", ")}`);
 if (!fs.existsSync(bf)) { fs.writeFileSync(bf, JSON.stringify({ arbitrary: n }) + "\n"); console.log(`baseline recorded: ${n} arbitrary values`); process.exit(0); }
 const base = JSON.parse(fs.readFileSync(bf, "utf8")).arbitrary;

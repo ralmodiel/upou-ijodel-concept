@@ -203,7 +203,7 @@ function Lookup({ F, area, close }) {
   const inArea = (f) => AREAS.find(([a]) => areas[a].some((c) => c.k === k && c.v === f.v))?.[1];
   return createPortal(
     <div className={`fixed inset-0 z-50 grid place-items-center p-3 transition ${drag ? "pointer-events-none" : "bg-ink-fill/50"}`} onClick={close}>
-      <div ref={box} role="dialog" aria-modal="true" aria-label="Find filters" onClick={(e) => e.stopPropagation()} className={`flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl bg-surface shadow-2xl transition ${drag ? "opacity-0" : ""}`}>
+      <div ref={box} role="dialog" aria-modal="true" aria-label="Find filters" onClick={(e) => e.stopPropagation()} className={`flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl border border-line bg-surface shadow-2xl transition ${drag ? "opacity-0" : ""}`}>
         <div className="flex flex-wrap items-center gap-3 border-b border-line p-4"><h2 className="font-serif text-xl">Find filters</h2><span className="text-xs text-ink-3">click to add, or drag onto an area</span>
           <label className="ml-auto flex items-center gap-2 text-sm">Add to <select value={to} onChange={(e) => setTo(e.target.value)} className="min-h-10 rounded-md border border-line px-2 text-base">{AREAS.map(([a, n]) => <option key={a} value={a}>{n}</option>)}</select></label>
           <button type="button" onClick={close} className="min-h-10 rounded-md bg-action-fill px-4 font-bold text-white">Done</button></div>
