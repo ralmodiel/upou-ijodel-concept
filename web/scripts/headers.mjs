@@ -20,6 +20,7 @@ if (!url) {
   ok("_headers Trusted Types trial (report-only)", /require-trusted-types-for/.test(all["content-security-policy-report-only"] || ""));
   ok("_headers assets immutable", /immutable/.test(block("/assets/*")["cache-control"] || ""));
   ok("_headers sw.js not cached", /no-cache/.test(block("/sw.js")["cache-control"] || ""));
+  if (process.env.CI) console.log("SKIP R118 style-hash probe in CI (needs a local browser and vite preview on :4173)"); else {
   // R118: style-src sha256 hashes in the meta CSP must equal the sha256 of every <style> the pages hold (inline in dist html, or injected by the 3D map library). Needs `vite preview` on :4173.
   const sha = (s) => "sha256-" + createHash("sha256").update(s).digest("base64"), have = new Set([...(meta.match(/style-src([^;]*)/)?.[1] || "").matchAll(/'(sha256-[^']+)'/g)].map((m) => m[1]));
   const { chromium } = await import("playwright-core"), { homedir } = await import("os"), br = await chromium.launch({ executablePath: `${homedir()}/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome`, args: ["--no-sandbox", "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
@@ -29,6 +30,7 @@ if (!url) {
   await br.close(); const miss = [...want].filter((x) => !have.has(x)), stale = [...have].filter((x) => !want.has(x));
   // shortcut: a hash whose <style> only appears in states this probe does not reach shows as "unseen", not a failure; add the state when found
   ok("every <style> the pages hold has its hash in the CSP", !miss.length, `(held ${want.size}, in CSP ${have.size}, missing ${miss.length}, unseen ${stale.length})`);
+  }
 } else {
   const get = async (p) => { const r = await fetch(new URL(p, url), { headers: { "accept-encoding": "gzip, br" } }); return { s: r.status, h: r.headers }; };
   const page = await get("./"), html = await (await fetch(url)).text(), js = html.match(/assets\/index-[^"]+\.js/)?.[0];
