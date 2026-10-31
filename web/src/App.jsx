@@ -1,3 +1,4 @@
+import { parseQuery } from "./query.js";
 import { recommend } from "./recommend.js";
 import { bibtex, citeStyle, styleText, STYLES, ris } from "./cite.js";
 import { About, CookieConsent, Privacy, openCookieSettings } from "./Consent.jsx";
@@ -47,17 +48,6 @@ const store = (k, v) => { try { if (v === undefined) { const a = JSON.parse(pref
 const recents = () => store("ijodel-recent").filter((x) => typeof x === "string" && x.length < 200);
 const remember = (q) => store("ijodel-recent", [q, ...recents().filter((x) => x !== q)].slice(0, 6));
 const saved = () => store("ijodel-saved").filter((x) => typeof x === "string" && x.length < 200);
-// Query operators: "exact phrase", -word, author:name (or author:"two words"), year:2020 or year:2018-2020; each kept as a removable chip.
-export const parseQuery = (q) => {
-  const o = { phrases: [], neg: [], author: "", y: null, ops: [] };
-  const text = (q || "").replace(/"([^"]+)"|(^|\s)-([\p{L}\p{N}][\p{L}\p{N}-]*)|\bauthor:("[^"]+"|\S+)|\byear:(\d{4})(?:-(\d{4}))?/giu, (m, ph, sp, ng, au, y1, y2) => {
-    if (ph) { o.phrases.push(ph.toLowerCase()); o.ops.push([`“${ph}”`, m]); return " " + ph + " "; }
-    if (ng) { o.neg.push(ng.toLowerCase()); o.ops.push(["not " + ng, m.trim()]); return " "; }
-    if (au) { o.author = au.replace(/"/g, "").toLowerCase(); o.ops.push(["author: " + au.replace(/"/g, ""), m]); return " "; }
-    o.y = [+y1, +(y2 || y1)].sort((a, b) => a - b); o.ops.push(["year: " + (o.y[0] === o.y[1] ? o.y[0] : o.y.join("–")), m]); return " ";
-  }).replace(/\s+/g, " ").trim();
-  return { ...o, text };
-};
 export const clip = (t, n) => (t.length > n ? t.slice(0, n).replace(/\s\S*$/, "") + "…" : t);
 
 // View lists (playlists): named collections of chapters, kept in localStorage, shared across components.
@@ -534,7 +524,7 @@ export function ViewToggle({ view, setView }) {
 // A chunk that fails to load (stale hash after a deploy, flaky network) gets one automatic reload instead of a blank page.
 /* intros live in the entry so the lazy-route fallbacks paint the LCP text before the chunk arrives */
 export const AdvIntro = () => <p className="mt-1 text-sm text-ink-2"><b>Required</b> must all match, <b>Expand</b> also includes any of these (or, set to “at least one of these”, becomes <b>Additional</b>: results must match one of them), <b>Boost</b> ranks matches higher (first listed most), <b>Exclude</b> leaves them out. Drag chips between areas (or use the ⇄ on a chip), and drag any result card into an area to filter by that chapter (or, in Details, use the chapter’s ＋). Undo with Ctrl+Z.</p>;
-export const MapsIntro = () => <p className="mt-1 text-sm text-ink-2">Pick a chapter, topic or author and see what it connects to. Click a node for details, or Tab to a node and use the arrow keys. Hover a line to see why two nodes connect. 3D: drag to rotate, scroll to zoom, right-drag to pan. 2D: drag to pan, scroll to zoom.</p>;
+export const MapsIntro = () => <p className="mt-1 text-sm text-ink-2">Pick a chapter, topic or author and see what it connects to. Click a node for details, or Tab to a node and use the arrow keys (Home and End jump to the first and last node, Esc clears the selection). Hover a line to see why two nodes connect. 3D: drag to rotate, scroll to zoom, right-drag to pan. 2D: drag to pan, scroll to zoom.</p>;
 export const lazyRetry = (load, pick = (m) => m) => lazy(() => load().then((m) => ({ default: pick(m) })).catch((e) => {
   const k = "ijodel-chunk-retry";
   try { if (!sessionStorage.getItem(k)) { sessionStorage.setItem(k, "1"); location.reload(); return new Promise(() => {}); } sessionStorage.removeItem(k); } catch { /* storage blocked: just fail */ }

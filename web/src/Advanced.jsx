@@ -158,7 +158,7 @@ function ChipEl({ c, area, mark }) {
 
 function Area({ id, name, hint, chips, F, onLookup, diff }) {
   const { mode } = useAdv();
-  const [q, setQ] = useState(""), [over, setOver] = useState(false), [at, setAt] = useState(null), box = useRef(null);
+  const [q, setQ] = useState(""), [over, setOver] = useState(false), [at, setAt] = useState(null), box = useRef(null), inp = useRef(null), [said, say] = useState("");
   // where in the Boost list the pointer is: the number of chips that come before it in reading order
   const slot = (e) => { const r = [...(box.current?.querySelectorAll("[data-chip]") || [])].map((el) => el.getBoundingClientRect()); return r.filter((b) => b.bottom < e.clientY || (b.top <= e.clientY && b.left + b.width / 2 < e.clientX)).length; };
   const opts = useMemo(() => {
@@ -167,7 +167,7 @@ function Area({ id, name, hint, chips, F, onLookup, diff }) {
     for (const k of ["category", "tag", "author", "issue", "year"]) for (const f of F[k]) if (f.l.toLowerCase().includes(t) && out.filter((o) => o.k === k).length < 3) out.push({ k, v: f.v, l: f.l });
     return [...out.slice(0, 8), { k: "words", v: q.trim(), l: q.trim() }];
   }, [q, F]);
-  const add = (c) => { addChip(id, c); setQ(""); };
+  const add = (c) => { addChip(id, c); setQ(""); say(`Added ${c.l} to ${name}`); inp.current?.focus(); }; // announce it, and keep focus in the input for the next one
   // while a chip is being dragged, a cover sits over the area so inputs and buttons can't swallow the drop
   const [drag, setDrag] = useState(false);
   useEffect(() => {
@@ -184,8 +184,8 @@ function Area({ id, name, hint, chips, F, onLookup, diff }) {
       <div className="flex items-baseline justify-between gap-2"><h2 className="font-serif text-lg">{id === "exp" && mode === "one" ? "Additional" : name}</h2>{id === "exp" ? <select aria-label="How the Expand filters apply" value={mode} onChange={(e) => setMode(e.target.value)} className="mr-auto ml-1 min-h-8 rounded-md border border-line bg-surface px-1 text-xs text-ink-2"><option value="one">at least one of these</option><option value="any">include any of these</option></select> : <span className="text-xs text-ink-3">{hint}</span>}</div>
       <div ref={box} className="mt-2 flex min-h-8 flex-wrap gap-1.5">{chips.length ? chips.map((c, i) => <ChipEl key={c.k + c.v} c={c} area={id} mark={id === "boost" && at === i} />) : <span className="text-sm text-ink-3">Empty: type below, use ⇄ or ＋ on a chip, or drop one here</span>}</div>
       <form className="relative mt-2 flex gap-1.5" onSubmit={(e) => { e.preventDefault(); if (q.trim()) add(opts[0] || { k: "words", v: q.trim(), l: q.trim() }); }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Topic, author, issue, year or words" aria-label={`Add to ${name}`} className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-base" />
-        <button className="min-h-10 rounded-md bg-navy-soft px-3 text-sm text-navy hover:bg-sky">Add</button>
+        <input ref={inp} value={q} onChange={(e) => { setQ(e.target.value); say(""); }} placeholder="Topic, author, issue, year or words" aria-label={`Add to ${name}`} className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-base" />
+        <button className="min-h-10 rounded-md bg-navy-soft px-3 text-sm text-navy hover:bg-sky">Add</button><span role="status" className="sr-only">{said}</span>
         <button type="button" onClick={() => onLookup(id)} aria-label={`Find filters for ${name}`} title="Find filters" className="grid min-h-10 w-10 place-items-center rounded-md bg-navy-soft text-navy hover:bg-sky"><Icon m="filter" w={2} className="h-5 w-5" /></button>
         {opts.length > 0 && <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-md border border-line bg-surface py-1 shadow-xl">{opts.map((o) => <li key={o.k + o.v}><button type="button" onClick={() => add(o)} className="flex min-h-10 w-full items-baseline gap-2 px-3 text-left text-sm hover:bg-navy-soft"><span className="w-16 shrink-0 text-2xs font-bold uppercase text-ink-3">{o.k === "words" ? "words" : KIND[o.k]}</span><span className="line-clamp-1">{o.l}</span></button></li>)}</ul>}
       </form>

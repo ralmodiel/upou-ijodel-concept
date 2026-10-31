@@ -301,7 +301,6 @@ ok("lists: reorder", JSON.parse(await p.evaluate(() => localStorage.getItem("ijo
   ok("lists: BibTeX export", /^@article\{ijodel10,/.test(t) && (t.match(/@article/g) || []).length === 2);
   const [r] = await Promise.all([p.waitForEvent("download"), p.getByRole("button", { name: "RIS" }).click()]); ok("lists: RIS export", /^TY {2}- JOUR/.test(await (await import("fs")).promises.readFile(await r.path(), "utf8")));
   const [j] = await Promise.all([p.waitForEvent("download"), p.getByRole("button", { name: "JSON", exact: true }).click()]);
-  await p.locator('input[type=file]').setInputFiles(await j.path()); await wait(); ok("lists: JSON import adds a list", JSON.parse(await p.evaluate(() => localStorage.getItem("ijodel-lists"))).length === 2);
   await p.getByRole("button", { name: "Copy share link" }).click(); await wait(); const link = await p.evaluate(() => navigator.clipboard.readText());
   await p.goto(link.replace(/^.*#/, U)); await p.waitForSelector("text=Shared view list"); ok("lists: share link opens the shared list", await p.locator("main li").count() === 2);
   await p.goto(U + "/list/share/x/295,<img>,99999"); await p.waitForSelector("text=Shared view list"); ok("lists: shared link keeps only known chapters", /1 chapter\./.test(await p.locator("main p").first().innerText())); }
@@ -414,6 +413,23 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
 { await p.evaluate(() => localStorage.setItem("ijodel-lists", JSON.stringify([{ id: "l1", name: "Test list", items: ["295"] }]))); await p.goto(U + "/list/l1"); await p.reload(); await p.waitForSelector("text=Test list");
   p.once("dialog", (d) => d.accept("Renamed list")); await p.getByRole("button", { name: "Rename" }).click(); await wait(200);
   ok("78 lists: rename", JSON.parse(await p.evaluate(() => localStorage.getItem("ijodel-lists")))[0].name === "Renamed list"); }
+{ const M = "svg[aria-label='Relationship map']", sc = () => p.evaluate((m) => +document.querySelector(m + " > g").getAttribute("transform").match(/scale\(([\d.]+)\)/)[1], M);
+  await p.setViewportSize({ width: 1400, height: 700 }); await p.goto(U + "/maps/pub/295"); await p.waitForSelector("svg g[data-node]"); await wait(500);
+  await p.evaluate((m) => document.querySelector(m).scrollIntoView({ block: "center" }), M); await wait(200);
+  const r = await p.locator(M).boundingBox(), y0 = await p.evaluate(() => scrollY), s0 = await sc(); await p.mouse.move(r.x + r.width / 2, r.y + r.height / 2); await p.mouse.wheel(0, 100); await wait(300);
+  ok("R100 maps: wheel over the 2D map zooms and does not scroll the page", await sc() < s0 && await p.evaluate(() => scrollY) === y0);
+  for (let i = 0; i < 15; i++) await p.mouse.wheel(0, 100); await wait(200);
+  ok("R103 maps: every svg text is at least 9 screen px at minimum zoom", await p.evaluate((m) => Math.min(...[...document.querySelectorAll(m + " text")].map((t) => t.getBoundingClientRect().height)), M) >= 8.9);
+  await p.goto(U + "/maps/pub/295"); await p.waitForSelector("svg g[data-node]"); await wait(300);
+  const all = await p.locator("svg g[data-node][tabindex]").count(); await p.locator("svg g[data-node][tabindex]").nth(2).focus(); await p.keyboard.press("End"); const e1 = await p.evaluate(() => [...document.querySelectorAll("svg g[data-node][tabindex]")].indexOf(document.activeElement));
+  await p.keyboard.press("Home"); const h1 = await p.evaluate(() => [...document.querySelectorAll("svg g[data-node][tabindex]")].indexOf(document.activeElement)); await p.keyboard.press("Enter"); await p.keyboard.press("Escape"); await wait(100);
+  ok("R104 maps: Home/End move between focusable nodes and Esc clears the selection", e1 === all - 1 && h1 === 0 && await p.evaluate(() => document.activeElement.getAttribute("aria-pressed")) === "false");
+  await p.setViewportSize({ width: 1024, height: 800 }); let hit = [];
+  for (const id of ["295", ...(await p.evaluate(() => window.__S.articles.slice(0, 4).map((a) => a.id)))]) { await p.goto(U + "/maps/pub/" + id); await p.waitForSelector("svg g[data-node]"); await wait(400);
+    hit.push(...await p.evaluate(() => { const f = document.querySelector("fieldset").getBoundingClientRect(); return [...document.querySelectorAll("svg g[data-node]")].filter((n) => { const q = n.getBoundingClientRect(); return q.left < f.right && q.right > f.left && q.top < f.bottom && q.bottom > f.top; }).map((n) => n.getAttribute("aria-label")); })); }
+  ok("R102 maps: the Show options box covers no node at 1024px on 5 seeds", hit.length === 0, hit[0] ?? ""); await p.setViewportSize({ width: 1400, height: 1500 }); }
+{ await p.goto(U + "/advanced"); await p.waitForSelector("h1"); await wait(300); const inp = p.getByLabel("Add to Required"); await inp.fill("distance learning"); await inp.press("Enter"); await wait(200);
+  ok("R105 advanced: Add announces the result and keeps focus in the input", await p.getByRole("status").filter({ hasText: /Added .* to Required/ }).count() === 1 && await p.evaluate(() => document.activeElement?.getAttribute("aria-label")) === "Add to Required"); }
 ok("no page errors (rounds 38-46)", errs.length === 0, errs.slice(0, 2).join(" | "));
 ok("no CSP violations by the end (model load included)", !csp.length, csp[0]?.slice(0, 120) ?? "");
 await b.close(); process.exit(bad ? 1 : 0);

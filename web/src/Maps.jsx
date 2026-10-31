@@ -3,6 +3,7 @@ import { weakDevice } from "./device.js";
 import { Component, lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { forceSimulation, forceLink, forceManyBody, forceCenter, forceCollide } from "d3-force";
 import { recommend } from "./recommend.js";
+import { adjacency, shortestPath } from "./graph.js";
 import { AddBtn, Icon, Link, MapsIntro, clip, issueKey, lazyRetry, slug } from "./App.jsx";
 import { AREAS, addChip, chipCount, setMode as setAdvMode, undo, useAdv } from "./Advanced.jsx";
 
@@ -167,12 +168,10 @@ export function Maps({ kind = "pub", id }) {
     addEventListener("keydown", f); return () => removeEventListener("keydown", f);
   });
   const pick = (v) => { setText(v); const o = options.find(([l]) => l === v); if (o) go(kind, o[1]); };
-  const near = (nid) => new Set(lay.links.filter((l) => l.source.id === nid || l.target.id === nid).flatMap((l) => [l.source.id, l.target.id]));
-  const focus = hov || sel, lit = focus && lay ? near(focus) : null;
+  const adj = useMemo(() => lay ? adjacency(lay.links) : new Map(), [lay]);
+  const focus = hov || sel, lit = focus && lay ? new Set([focus, ...(adj.get(focus) || []).map((e) => e[0])]) : null;
   // shortest path from the selection back to the seed (breadth-first): drawn bold and spelled out as "why connected"
-  const path = useMemo(() => { if (!lay || !sel || sel === g.seed) return []; const prev = new Map([[sel, null]]), q = [sel];
-    while (q.length && !prev.has(g.seed)) { const c = q.shift(); for (const l of lay.links) for (const [x, y] of [[l.source.id, l.target.id], [l.target.id, l.source.id]]) if (x === c && !prev.has(y)) { prev.set(y, l); q.push(y); } }
-    const out = []; for (let c = g.seed, l; (l = prev.get(c)); c = l.source.id === c ? l.target.id : l.source.id) out.push(l); return out; }, [lay, sel, g]); // seed first
+  const path = useMemo(() => (!lay || !sel || sel === g.seed ? [] : shortestPath(adj, sel, g.seed)), [lay, sel, g, adj]); // seed first
   const onPath = new Set(path);
   // circuit polish: the seed emblem grows with its fan-in; a label goes on the node's outer side unless a trace leaves that way
   const deg = lay ? lay.links.filter((l) => l.source.id === g.seed || l.target.id === g.seed).length : 0, seedK = Math.min(2, 1 + deg / 30);
@@ -180,7 +179,10 @@ export function Maps({ kind = "pub", id }) {
   const drag = useRef(null);
   const down = (e) => { drag.current = { x: e.clientX, y: e.clientY, v: view, moved: false }; e.currentTarget.setPointerCapture?.(e.pointerId); };
   const move = (e) => { const d = drag.current; if (!d) return; const s = W / svg.current.getBoundingClientRect().width; if (Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) > 3) d.moved = true; setView({ ...d.v, x: d.v.x + (e.clientX - d.x) * s, y: d.v.y + (e.clientY - d.y) * s }); };
-  const wheel = (e) => setView((v) => ({ ...v, k: Math.max(0.4, Math.min(3, v.k * (e.deltaY < 0 ? 1.12 : 0.89))) }));
+  const wheel = (e) => { e.preventDefault(); setView((v) => ({ ...v, k: Math.max(0.4, Math.min(3, v.k * (e.deltaY < 0 ? 1.12 : 0.89))) })); };
+  const wheelRef = useRef(wheel); wheelRef.current = wheel;
+  // React's onWheel is passive, so preventDefault needs a native listener (page must not scroll while zooming)
+  useEffect(() => { const el = svg.current; if (!el) return; const f = (e) => wheelRef.current(e); el.addEventListener("wheel", f, { passive: false }); return () => el.removeEventListener("wheel", f); }, [dim, !!lay]);
   const save = () => {
     if (dim === "3d") { const a = document.createElement("a"); a.download = "ijodel-map.png"; a.href = g3.current.png(); a.click(); return; }
     const s = new XMLSerializer().serializeToString(svg.current), img = new Image();
@@ -188,7 +190,7 @@ export function Maps({ kind = "pub", id }) {
     img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s);
   };
   // Fit the whole graph in the frame; the user's zoom and pan sit on top of this.
-  const fit = useMemo(() => { if (!lay) return { k: 1, cx: 0, cy: 0 }; const xs = lay.nodes.map((n) => n.x), ys = lay.nodes.map((n) => n.y), pad = 90, rx = Math.max(...xs) - Math.min(...xs), bh = Math.max(...ys) - Math.min(...ys) + pad; /* circuit: side labels take ~150 screen px whatever the zoom */ return { k: Math.min(2, mode === "circuit" ? (W - 420) / (rx + pad * 2) : W / (rx + pad * 2), H / bh), cx: (Math.max(...xs) + Math.min(...xs)) / 2, cy: (Math.max(...ys) + Math.min(...ys)) / 2, ox: mode === "circuit" ? 60 : 0 }; }, [lay, mode]); /* ox: keep labels clear of the top-left legend */
+  const fit = useMemo(() => { if (!lay) return { k: 1, cx: 0, cy: 0 }; const xs = lay.nodes.map((n) => n.x), ys = lay.nodes.map((n) => n.y), pad = 90, rx = Math.max(...xs) - Math.min(...xs), bh = Math.max(...ys) - Math.min(...ys) + pad; /* circuit: side labels take ~150 screen px whatever the zoom */ const lp = winW >= 640 && pw ? Math.min(330, 175 * W / pw) : 0; return { k: Math.min(2, (mode === "circuit" ? (W - 420 - lp) / (rx + pad * 2) : (W - lp) / (rx + pad * 2)), H / bh), cx: (Math.max(...xs) + Math.min(...xs)) / 2, cy: (Math.max(...ys) + Math.min(...ys)) / 2, ox: (mode === "circuit" ? 60 : 0) + lp / 2 }; }, [lay, mode, winW, pw]); /* ox: keep labels clear of the top-left legend */
   const sc = view.k * fit.k, cur = lay?.by.get(sel);
   const chipOf = (n) => ({ pub: { k: "pub", v: n.ref, l: n.label }, tag: { k: "tag", v: n.ref, l: n.label }, category: { k: "category", v: n.ref, l: n.label }, author: { k: "author", v: n.ref, l: n.label }, issue: { k: "issue", v: n.ref, l: n.label } })[n.kind];
   const total = chipCount(areas), inSearch = (n) => AREAS.some(([a]) => areas[a].some((c) => c.k === n.kind && c.v === n.ref));
@@ -223,14 +225,14 @@ export function Maps({ kind = "pub", id }) {
           {!lay ? <p className="p-10 text-center text-ink-3">Nothing to map for that seed. Pick another.</p> : dim === "3d" ?
             <Guard onFail={(why) => { setFail(why); setDim("2d"); }}><Suspense fallback={<p className="p-10 text-center text-ink-3">Loading 3D map…</p>}><Graph3D ref={g3} nodes={lay.nodes} links={lay.links} seed={g.seed} colors={COLOR} mode={mode} shapes={shapes} focus={focus} sel={sel} marked={inSearch} low={low} height={fs ? Math.max(360, winH - 140) : th ? Math.max(360, winH - 150) : nh} onSelect={(id) => { const n = id && lay.nodes.find((x) => x.id === id); if (!(n && solo(n))) setSel(id); }} onHover={setHov} /></Suspense></Guard> :
             <svg ref={svg} xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Relationship map" className={`block w-full touch-none select-none ${fs ? "h-full" : th ? "" : "h-auto"}`} style={{ ...(!fs ? { height: th ? Math.max(360, winH - 150) : nh } : {}), cursor: drag.current ? "grabbing" : "grab", background: "radial-gradient(circle, #eef1f7 1px, transparent 1px) 0 0/22px 22px" }}
-              onPointerDown={down} onPointerMove={move} onPointerUp={() => { const m = drag.current?.moved; drag.current = null; if (!m) setSel(null); }} onWheel={wheel}>
+              onPointerDown={down} onPointerMove={move} onPointerUp={() => { const m = drag.current?.moved; drag.current = null; if (!m) setSel(null); }}>
               <g transform={`translate(${W / 2 + (fit.ox || 0) + view.x} ${H / 2 + view.y}) scale(${view.k * fit.k}) translate(${-fit.cx} ${-fit.cy})`}>
                 {lay.links.map((l, i) => { const f = (focus && (l.source.id === focus || l.target.id === focus)) || onPath.has(l); return <g key={i} data-path={onPath.has(l) || undefined} opacity={focus && !f ? 0.12 : 1}><title>{`${l.source.label} → ${l.rel || "linked"} → ${l.target.label}`}</title>
                   {mode === "circuit" ? <><path d={trace(l.source, l.target)} fill="none" strokeLinejoin="round" stroke={onPath.has(l) ? LOGO.navy : LOGO.cyan} strokeDasharray={l.weak ? "3 4" : undefined} strokeOpacity={f ? 1 : l.weak ? 0.4 : 0.75} strokeWidth={(l.w || 1) * (f ? 1.7 : 1.1)} />{bends(l.source, l.target).map(([x, y], j) => <circle key={j} cx={x} cy={y} r={2.6} fill={LOGO.navy} aria-hidden="true" />)}</> : <line x1={l.source.x} y1={l.source.y} x2={l.target.x} y2={l.target.y} stroke={onPath.has(l) ? LOGO.navy : LOGO.cyan} strokeDasharray={l.weak ? "3 4" : undefined} strokeOpacity={f ? 1 : l.weak ? 0.4 : 0.65} strokeWidth={(l.w || 1) * (f ? 1.8 : 1)} />}
-                  {l.rel && <text x={(l.source.x + l.target.x) / 2} y={(l.source.y + l.target.y) / 2} textAnchor="middle" dominantBaseline="middle" fontSize={(f ? 10 : 8) / sc} fontStyle="italic" fill={f ? "#28345a" : "#5b6480"} stroke="#fff" strokeWidth={3 / sc} paintOrder="stroke">{trunc(l.tag || l.rel, f ? 44 : 28)}</text>}</g>; })}
+                  {l.rel && <text x={(l.source.x + l.target.x) / 2} y={(l.source.y + l.target.y) / 2} textAnchor="middle" dominantBaseline="middle" fontSize={(f ? 10 : 9) / sc} fontStyle="italic" fill={f ? "#28345a" : "#5b6480"} stroke="#fff" strokeWidth={3 / sc} paintOrder="stroke">{trunc(l.tag || l.rel, f ? 44 : 28)}</text>}</g>; })}
                 {lay.nodes.map((n) => { const dim = lit && !lit.has(n.id) && n.id !== focus, isSeed = n.id === g.seed, label = true; return (
                   <g key={n.id} data-node={n.id} {...(solo(n) ? {} : { tabIndex: 0, role: "button", "aria-pressed": n.id === sel })} aria-label={`${KIND_LABEL[n.kind]}: ${n.label}`} transform={`translate(${n.x} ${n.y})`} opacity={dim ? 0.4 : 1} style={{ cursor: solo(n) ? "default" : "pointer", transition: "opacity .2s" }}
-                    onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); if (!solo(n)) setSel(n.id); }} onKeyDown={(e) => { if (solo(n)) return; if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSel(n.id); } else if (e.key === "Escape") setSel(null); else if (/^Arrow/.test(e.key)) { e.preventDefault(); const all = [...svg.current.querySelectorAll("g[data-node]")], i = all.indexOf(e.currentTarget); all[(i + (/Right|Down/.test(e.key) ? 1 : -1) + all.length) % all.length]?.focus(); } }} onMouseEnter={() => setHov(n.id)} onMouseLeave={() => setHov(null)} onFocus={() => setHov(n.id)} onBlur={() => setHov(null)}>
+                    onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); if (!solo(n)) setSel(n.id); }} onKeyDown={(e) => { if (solo(n)) return; if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSel(n.id); } else if (e.key === "Escape") setSel(null); else if (/^Arrow/.test(e.key)) { e.preventDefault(); const all = [...svg.current.querySelectorAll("g[data-node][tabindex]")], i = all.indexOf(e.currentTarget); all[(i + (/Right|Down/.test(e.key) ? 1 : -1) + all.length) % all.length]?.focus(); } else if (e.key === "Home" || e.key === "End") { e.preventDefault(); const all = svg.current.querySelectorAll("g[data-node][tabindex]"); all[e.key === "Home" ? 0 : all.length - 1]?.focus(); } }} onMouseEnter={() => setHov(n.id)} onMouseLeave={() => setHov(null)} onFocus={() => setHov(n.id)} onBlur={() => setHov(null)}>
                     {isSeed && <g fill="none" aria-hidden="true" transform={`scale(${seedK})`}><circle r={n.r * 3.1} stroke={LOGO.navy} strokeWidth="1.3" strokeDasharray="1 4" strokeLinecap="round" /><circle r={n.r * 2.6} stroke={LOGO.cyan} strokeWidth="4" strokeDasharray="11 6" /><circle r={n.r * 2.3} stroke={LOGO.navy} strokeWidth="2" strokeDasharray="4 9" /><circle r={n.r * 2} stroke={LOGO.pale} strokeWidth="5" /></g>}
                     <g fill={COLOR[n.kind]} stroke={n.id === sel ? "#000" : inSearch(n) ? "#f2b705" : n.kind === "pub" ? LOGO.navy : "#fff"} strokeWidth={n.id === sel || inSearch(n) ? 3 : 2}>{shapes ? shape(n.kind, isSeed ? n.r * 1.4 * seedK : n.r) : <circle r={isSeed ? n.r * 1.4 * seedK : n.r} />}</g>
                     {label && <text {...(isSeed ? { y: n.r * 3.1 * seedK + 14 / sc, textAnchor: "middle" } : mode === "circuit" && n.x && !outward.has(n.id) ? { x: Math.sign(n.x) * (n.r + 6), y: 4 / sc, textAnchor: n.x < 0 ? "end" : "start" } : { y: n.r + 14 / sc, textAnchor: "middle" })} fontSize={(isSeed ? 13 : 11) / sc} fontWeight={isSeed ? 700 : 400} fill="#28345a" stroke="#fff" strokeWidth={3.5 / sc} paintOrder="stroke">{trunc(n.label, isSeed ? 44 : 26)}</text>}</g>); })}
