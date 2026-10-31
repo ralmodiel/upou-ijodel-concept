@@ -10,6 +10,8 @@ const cases = [
   ["chicago 3", styleText(A(["Cruz, Ana", "Reyes, Ben", "Lim, Cy"]), "chicago"), `Cruz, Ana, Ben Reyes, and Cy Lim. 2020. “Learning online: a study.” ${J} 6 (1). https://ijodel.com/x.`],
   ["bibtex", bibtex([A(["Cruz, Ana"])]).includes("author = {Cruz, Ana}") && bibtex([A(["Cruz, Ana"])]).includes("@article{ijodel7,"), true],
   ["ris", ris([A(["Cruz, Ana"])]).startsWith("TY  - JOUR\r\nAU  - Cruz, Ana\r\n"), true],
+  // R158: a hostile title cannot close a BibTeX field or start a new RIS tag line (no CSV export exists, so no formula cells)
+  ["hostile title", ((x) => bibtex([x]).includes("title = {=cmd XER  - TY  - BOOK}") && ris([x]).split("\r\n").filter((l) => /^(TY|ER)  - /.test(l)).length === 2)({ ...A(["Cruz, Ana"]), title: "=cmd} X\r\nER  - \nTY  - BOOK{" }), true],
 ];
 let bad = 0;
 for (const [n, got, want] of cases) if (got !== want) { bad++; console.log(`FAIL ${n}\n  got  ${got}\n  want ${want}`); }

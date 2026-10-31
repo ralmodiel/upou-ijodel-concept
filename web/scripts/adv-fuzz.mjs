@@ -1,7 +1,8 @@
 // Advanced search fuzz (run in web/): node scripts/adv-fuzz.mjs [cases=3000]
 // Pulls hit() and run() out of src/Advanced.jsx and compares them on random chip combos (Required/Boost/Expand/Exclude,
 // Boost H/L chips that also sit in other areas, words chips, mode any/one) with a brute-force reference written from the
-// spec. Prints "N cases, M mismatch" and exits 1 on any mismatch.
+// spec, and checks that Exclude, Required and repeated chips only narrow (R150). Prints "N cases, M mismatch, P property
+// violations" and exits 1 on any.
 import fs from "node:fs"; import path from "node:path";
 const web = path.resolve(import.meta.dirname, ".."), src = fs.readFileSync(path.join(web, "src/Advanced.jsx"), "utf8");
 const grab = (re) => { const m = src.match(re); if (!m) { console.log("FAIL cannot find code: " + re); process.exit(1); } return m[0]; };
@@ -36,7 +37,7 @@ function ref(ar, mode) {
   for (const p of ['{"k":"__proto__","v":"x"}', '{"k":"constructor","v":"x"}', '{"k":"tag","v":{"a":1}}', '{"k":"tag"}', 'null', '[1,2]', '{"k":"evil","v":"x"}']) { try { if (drop("req", p)) chips++; } catch { errs++; } }
   if (!drop("req", '{"k":"tag","v":"ok"}')) { chips = -1; }
   console.log(`hostile drops: ${chips} chips added, ${errs} thrown (JSON errors are caught by onDrop)`); if (chips) { console.log("FAIL hostile chip accepted"); process.exit(1); } }
-const N = +process.argv[2] || 3000; let bad = 0; const show = [];
+const N = +process.argv[2] || 3000; let bad = 0, props = 0; const show = [];
 for (let t = 0; t < N; t++) {
   const ar = { req: [], exp: [], exc: [], boost: [] }, used = new Set();
   for (let i = rnd(6); i-- > 0;) { const c = chip(), id = c.k + c.v; if (used.has(id)) continue; used.add(id); ar[pick(["req", "exp", "exc"])].push(c); }
@@ -46,6 +47,11 @@ for (let t = 0; t < N; t++) {
   const mode = rnd(2) ? "one" : "any", got = run(ar, words, mode).rows, want = ref(ar, mode);
   const ok = got.length === want.size && got.every((r) => want.get(r.id) === r.score);
   if (!ok) { bad++; show.push(`${mode} ${JSON.stringify(ar).slice(0, 160)} got ${got.length} want ${want.size}`); }
+  // R150 properties: an extra Exclude chip, or a repeated chip in any area, never adds a hit; an extra Required chip never adds one
+  // either, except in "any" mode with Expand chips and no Required yet (Required then joins the Expand OR by design).
+  const ids = new Set(got.map((r) => r.id)), more = (area, c) => run({ ...ar, [area]: [...ar[area], c] }, words, mode).rows.filter((r) => !ids.has(r.id)).length;
+  const dup = [...ar.req.map((c) => ["req", c]), ...ar.exc.map((c) => ["exc", c]), ...ar.exp.map((c) => ["exp", c])][0];
+  for (const [what, x] of [["exclude", more("exc", chip())], ["required", mode === "one" || ar.req.length || !ar.exp.length ? more("req", chip()) : 0], ["duplicate", dup ? more(dup[0], dup[1]) : 0]]) if (x) { props++; show.push(`${what} chip added ${x} hits (${mode})`); }
 }
 show.slice(0, 5).forEach((s) => console.log("mismatch " + s));
-console.log(`${N} cases, ${bad} mismatch`); process.exit(bad ? 1 : 0);
+console.log(`${N} cases, ${bad} mismatch, ${props} property violations`); process.exit(bad || props ? 1 : 0);

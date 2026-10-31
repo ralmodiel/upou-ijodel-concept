@@ -29,7 +29,7 @@ const NAME = /^[^,]+, ([A-Z]\.(-[A-Z]\.)?)( [A-Z]\.(-[A-Z]\.)?)*(, (Jr\.|Sr\.|II
 check(arts.flatMap((a) => a.authors.filter((x) => x.includes(",")).map((x) => one([x])).filter((c) => !NAME.test(c)).map((c) => `${a.id}: ${c}`)), "every author cites as Last, initials (suffix after)");
 check(arts.filter((a) => !citeText(a).includes(`(${a.year}).`) || !citeText(a).includes(`, ${a.issue.vol}(${a.issue.no}). ${a.url}`)).map((a) => a.id), "every citation has year, vol(no) and url");
 // 3) maps
-const build = new Function("window", "issueKey", "clip", grab(maps, /function build\(kind, id, on\) \{[\s\S]*?\n\}\n/) + "return build;")({ __S: S }, issueKey, (s) => s);
+const build = new Function("window", "issueKey", "clip", grab(maps, /const idx = [\s\S]*?\n\}\)\(\);\n/) + grab(maps, /function build\(kind, id, on\) \{[\s\S]*?\n\}\n/) + "return build;")({ __S: S }, issueKey, (s) => s);
 const on = { rel: true, issue: true, tag: true, category: true, author: true }, g = (k, v) => build(k, v, on);
 check(arts.filter((a) => { const m = g("pub", a.id); return m.seed !== "p:" + a.id || !m.nodes.some((x) => x.id === m.seed); }).map((a) => a.id), "pub map seeds on every article");
 check(arts.filter((a) => a.subjects[0] && !g("tag", decodeURIComponent(encodeURIComponent(a.subjects[0]))).nodes.length).map((a) => a.id), "topic map link resolves");

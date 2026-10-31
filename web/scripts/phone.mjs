@@ -38,5 +38,9 @@ for (const [label, r, fresh, fs] of [["home, fresh visitor", "/", true], ["home,
   for (const r of ["/maps/pub/3", "/advanced"]) { await q.goto("http://localhost:4173/#" + r); await q.waitForTimeout(1200);
     const small = await q.evaluate(() => [...document.querySelectorAll("button, input, select, label, summary, [role=button]")].filter((e) => { const c = getComputedStyle(e), r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && c.visibility !== "hidden" && !e.disabled && r.height < 39.5 && !(e.tagName === "INPUT" && e.closest("label")) && !e.closest("svg") && !(e.closest("details:not([open])") && e.tagName !== "SUMMARY") && !(e.tagName === "LABEL" && e.querySelector("input:not([type=checkbox]):not([type=radio]), select, textarea")); }).map((e) => `${e.tagName.toLowerCase()}:${(e.getAttribute("aria-label") || e.textContent || "").trim().slice(0, 24)}:${Math.round(e.getBoundingClientRect().height)}`));
     if (small.length) { overlap += small.length; console.log("SMALL", r, small.slice(0, 12).join(" | ")); } }
+  // R155: on /advanced a "Show N results" button sits within the viewport and takes focus to the results
+  const sb = q.getByRole("button", { name: /^Show \d+ results?$/ }), box = await sb.boundingBox().catch(() => null);
+  const inView = !!box && box.y >= 0 && box.y + box.height <= 844; if (inView) await sb.click(); const jumped = inView && await q.evaluate(() => document.activeElement?.id === "adv-results" && document.activeElement.getBoundingClientRect().top < innerHeight);
+  if (!jumped) { overlap++; console.log("SHOW RESULTS", JSON.stringify(box)); } else console.log("show-results button at", Math.round(box.y), "px, jumps to results");
   await c4.close(); }
 console.log(`${routes.length} routes, ${bad} overflow; 5 overlap probes, ${overlap} overlap`); bad += overlap; await b.close(); process.exit(bad ? 1 : 0);

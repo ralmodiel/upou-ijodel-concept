@@ -1,4 +1,5 @@
 import { parseQuery } from "./query.js";
+import { weakDevice } from "./device.js";
 import { recommend } from "./recommend.js";
 import { bibtex, citeStyle, styleText, STYLES, ris } from "./cite.js";
 import { CookieConsent, openCookieSettings } from "./Consent.jsx";
@@ -26,6 +27,10 @@ const useHash = () => {
   }, []);
   useLayoutEffect(() => {
     if (trail.at(-1).route === h) return;
+    // R154: a new page takes focus to <main> (screen readers then read it under the new title); in-page updates of the map or a
+    // search (same first segment) keep focus where it is, on the map node or the search box
+    const seg = (r) => r.split("/")[1], prev = trail.at(-1).route;
+    if (!(seg(prev) === seg(h) && ["maps", "search"].includes(seg(h)))) document.getElementById("main")?.focus({ preventScroll: true });
     const back = !keep && trail.at(-2)?.route === h; // an emblem click is forward even when it lands on the page two steps back
     const stay = keep && !back; keep = false;
     if (back) trail.pop(); else trail.push({ route: h, y: stay ? scrollY : 0 });
@@ -315,6 +320,7 @@ function Hero({ items }) {
       <div key={a.id} className="rise relative mx-auto grid max-w-6xl min-[1536px]:max-w-[88rem] items-center gap-8 px-4 py-10 sm:px-8 md:grid-cols-[1fr_13rem] md:py-14">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky">Featured · {a.categories?.[0] || "IJODeL"}</p>
+          {/* the one h1 above text-3xl on purpose: the home hero (R153); every route h1 is font-serif text-3xl, normal weight */}
           <h1 className="mt-3 font-serif text-3xl leading-tight sm:text-4xl">{a.title}</h1>
           <p className="mt-3 text-white/80">{by(a)} · {a.year}</p>
           <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-white/90">{clip(a.abstract, 300)}</p>
@@ -486,7 +492,7 @@ function Group({ kind, id }) {
     <section className="mx-auto max-w-6xl min-[1536px]:max-w-[88rem] px-4 py-8 sm:px-8">
       <Crumbs trail={[["/", "Home"], ...(kind === "issue" ? [["/issues", "Issues"]] : kind === "year" ? [] : [["/topics", "Topics"]]), [null, kind === "tag" ? "Tag: " + title : title]]} />
       <div className="mt-2 flex gap-5">{im && <img src={asset(im.cover)} width="420" height="592" decoding="async" alt={`Cover of ${title}`} className="hidden w-28 shrink-0 rounded border border-line sm:block" />}<div>
-      <h1 className="font-serif text-3xl font-light">{kind === "tag" && <span className="text-ink-3">Tag: </span>}{title}</h1>{im?.theme && <p className="font-serif text-lg text-ink-2">{im.theme}</p>}<p className="text-ink-3">{items.length} chapters{kind === "issue" ? " in this issue" : ""}</p>
+      <h1 className="font-serif text-3xl">{kind === "tag" && <span className="text-ink-3">Tag: </span>}{title}</h1>{im?.theme && <p className="font-serif text-lg text-ink-2">{im.theme}</p>}<p className="text-ink-3">{items.length} chapters{kind === "issue" ? " in this issue" : ""}</p>
       {kind === "cat" && Object.keys(rc).length > 0 && <p className="mt-3 flex flex-wrap gap-2 text-sm"><span className="text-ink-3">Related topics:</span>{Object.entries(rc).sort((x, y) => y[1] - x[1]).map(([c]) => <Link key={c} to={"/cat/" + slug(c)} className="rounded-full bg-crimson-soft px-3 py-0.5 text-link hover:underline">{c}</Link>)}</p>}</div></div>
       {kind === "issue" && items.length > 0 && <ol aria-label="Contents" className="mt-4 list-decimal space-y-1 pl-6 text-sm">{items.map((a) => <li key={a.id}><Link to={"/read/" + a.id} className="text-link hover:underline">{a.title}</Link> <span className="text-ink-3">· {by(a)}</span></li>)}</ol>}
       {(kind === "tag" || kind === "cat") && Object.keys(rel).length > 0 && <p className="mt-3 flex flex-wrap gap-2 text-sm"><span className="text-ink-3">{kind === "cat" ? "Common tags:" : "Related tags:"}</span>{Object.entries(rel).sort((x, y) => y[1] - x[1]).slice(0, 8).map(([s]) => <Link key={s} to={tagTo(s)} className="rounded-full bg-navy-soft px-3 py-0.5 text-navy hover:underline">{s}</Link>)}</p>}
@@ -580,10 +586,10 @@ function Search({ q0 }) {
   const P = { op: (a) => (!pq.y || (a.year >= pq.y[0] && a.year <= pq.y[1])) && (!pq.author || by(a).toLowerCase().includes(pq.author)) && (!pq.phrases.length && !pq.neg.length || ((h) => (soft || pq.phrases.every((x) => h.includes(x))) && !pq.neg.some((x) => new RegExp("\\b" + x.replace(/[^\w-]/g, "") + "\\b").test(h)))(hay(a))), year: (a) => a.year >= from && a.year <= to, au: (a) => !au || by(a).toLowerCase().includes(au), subj: (a) => !subj.length || subj.every((s) => a.subjects.includes(s)), issue: (a) => !issue || issueKey(a) === issue, cat: (a) => !cat.length || a.categories.some((c) => cat.includes(c)) };
   // Facet lists show only what the other filters leave; the facet clicked last also ignores its own filter so more can be picked from it.
   const match = (skip) => (base || []).filter((a) => Object.entries(P).every(([k, f]) => k === skip || f(a)));
-  const pre = match("cat"), res = pre.filter(P.cat);
+  const pre = match("cat"), res = pre.filter(P.cat), resCats = new Set(res.flatMap((a) => a.categories)); // res = match(""): reuse it (R156)
   const list = sort === "newest" ? [...res].sort((x, y) => y.year - x.year) : sort === "oldest" ? [...res].sort((x, y) => x.year - y.year) : sort === "title" ? [...res].sort((x, y) => x.title.localeCompare(y.title)) : res;
   const count = {}; pre.forEach((a) => a.categories.forEach((c) => { count[c] = (count[c] || 0) + 1; }));
-  const sc = {}; match(last === "subj" ? "subj" : "").forEach((a) => a.subjects.forEach((s) => { sc[s] = (sc[s] || 0) + 1; }));
+  const sc = {}; (last === "subj" ? match("subj") : res).forEach((a) => a.subjects.forEach((s) => { sc[s] = (sc[s] || 0) + 1; }));
   const subjects = Object.entries(sc).sort((x, y) => y[1] - x[1]).slice(0, allSubj ? 60 : 14).map((x) => x[0]);
   const tog = (arr, set, v, f) => { setLast(f); set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]); };
   const issues = new Map(all.map((a) => [issueKey(a), a.issue.label])), fix = base && base.length <= 3 && pq.text ? didYouMean(pq.text) : null;
@@ -593,7 +599,7 @@ function Search({ q0 }) {
   const [, bump] = useState(0), isSaved = q0 && saved().includes(q0);
   const toggleSave = () => { store("ijodel-saved", isSaved ? saved().filter((x) => x !== q0) : [q0, ...saved()].slice(0, 20)); bump((n) => n + 1); };
   const authors = [...new Set(match("au").flatMap((a) => a.authors))].sort();
-  const shownCats = last === "cat" || !cat.length ? cats.filter((c) => count[c] || cat.includes(c)) : cats.filter((c) => match("").some((a) => a.categories.includes(c)) || cat.includes(c));
+  const shownCats = last === "cat" || !cat.length ? cats.filter((c) => count[c] || cat.includes(c)) : cats.filter((c) => resCats.has(c) || cat.includes(c));
   const yrs = new Set(match("year").map((a) => a.year)), shownYears = years.filter((y) => yrs.has(y) || y === from || y === to);
   const active = [...cat.map((c) => [c, () => tog(cat, setCat, c, "cat")]), ...subj.map((s) => [s, () => tog(subj, setSubj, s, "subj")]), ...(au ? [["Author: " + author, () => setAuthor("")]] : []), ...(issue ? [[issues.get(issue), () => setIssue("")]] : []), ...(from > years[0] || to < years.at(-1) ? [[`${from}–${to}`, () => { setFrom(years[0]); setTo(years.at(-1)); }]] : [])];
   const reset = () => { setCat([]); setSubj([]); setAuthor(""); setIssue(""); setFrom(years[0]); setTo(years.at(-1)); setScope(SCOPES.flatMap((s) => s[0].split(","))); };
@@ -800,6 +806,8 @@ export default function App() {
   useEffect(() => { load().then((S) => { window.__S = S; setState("ok"); S.textsP.then(() => setFaqTick((n) => n + 1)); }).catch((e) => setState("Could not load the index: " + e.message)); }, []);
   const consent = useConsent(), online = useOnline(), [upd, setUpd] = useState(null);
   useEffect(() => { syncSW(); }, [consent?.prefs]);
+  // R157: once the index is in, fetch the Maps and Advanced chunks while idle so those tabs open at once; weak devices skip it
+  useEffect(() => { if (state === "ok" && !weakDevice()) (window.requestIdleCallback || setTimeout)(() => Object.values(LOAD).forEach((f) => f().catch(() => {})), { timeout: 2000 }); }, [state]);
   useEffect(() => { const f = (e) => setUpd(() => e.detail); addEventListener("ijodel-update", f); return () => removeEventListener("ijodel-update", f); }, []);
   // the semantic model is a third-party download: only with consent, and only once someone searches (box focus or a search route)
   useEffect(() => { if (state === "ok" && consent?.model && route.startsWith("/search/")) startModel(true); }, [state, consent?.model, route]);

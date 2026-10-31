@@ -304,7 +304,9 @@ export function Advanced({ share }) {
         </div></aside>
       </div>
       {(note || link) && <p role="status" className="mt-3 break-all text-sm text-ink-3">{note} {noteUndo && <button type="button" onClick={() => undo()} className="ml-1 min-h-8 rounded-full bg-action-fill px-3 font-medium text-white">Undo</button>} {link === "copied" ? "The search link is copied to your clipboard. It is also in the address bar." : link.startsWith("manual:") ? <>Could not copy automatically. The link is in the address bar: <span className="select-all">{link.slice(7)}</span></> : null}</p>}
-      <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-line pt-4">
+      {/* R155: on phones the four areas stack, so a sticky button jumps to the results; it settles here once they are reached */}
+      <button type="button" onClick={() => document.getElementById("adv-results")?.focus()} className="sticky bottom-3 z-20 mx-auto mt-4 block min-h-11 rounded-full bg-action-fill px-6 font-bold text-white shadow-lg hover:bg-action-2-fill sm:hidden">Show {list.length} result{list.length === 1 ? "" : "s"}</button>
+      <div id="adv-results" tabIndex={-1} className="mt-5 flex flex-wrap items-center gap-3 border-t border-line pt-4 outline-none">
         <p className="text-sm"><b>{list.length}</b> chapter{list.length === 1 ? "" : "s"}{total > 0 && <span className="text-ink-3"> · {strict} match all required · {mode === "one" ? " · each has at least one Additional filter" : ` · +${viaExpand} via Expand`}</span>}</p>
       </div>
       <div className="mt-4 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]"><div className="min-w-0">

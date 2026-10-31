@@ -23,7 +23,9 @@ export function setConsent(v) {
 }
 // Model files (Cache Storage, transformers.js) and the passage vectors (IndexedDB) are kept only under the model consent.
 const dropModelCache = () => { try { ["transformers-cache", "experimental_transformers-hash-cache"].forEach((n) => caches?.delete(n)); indexedDB?.deleteDatabase("ijodel"); } catch { /* ignore */ } };
-export const forgetConsent = () => { c = null; dropModelCache(); try { localStorage.removeItem(K); } catch { /* ignore */ } subs.forEach((f) => f()); };
+// Forget everything: the choice, every ijodel-* key in both storages, the visit's memory copies and the model stores; App's syncSW
+// effect (on consent.prefs) then unregisters the service worker and its ijodel-offline-* caches.
+export const forgetConsent = () => { c = null; mem.clear(); dropModelCache(); try { [localStorage, sessionStorage].forEach((s) => Object.keys(s).filter((k) => k.startsWith("ijodel-")).forEach((k) => s.removeItem(k))); } catch { /* ignore */ } subs.forEach((f) => f()); };
 export function useConsent() {
   const [, tick] = useState(0);
   useEffect(() => { const f = () => tick((n) => n + 1); subs.add(f); return () => subs.delete(f); }, []);

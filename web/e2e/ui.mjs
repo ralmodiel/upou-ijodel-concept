@@ -21,6 +21,9 @@ const fill4 = async () => { await p.goto(U + "/advanced"); const code = await p.
   const u = new Uint8Array(await new Response(new Blob([new TextEncoder().encode(json)]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
   return btoa(String.fromCharCode(...u)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); });
   await p.goto(U + "/advanced/s/" + code); await wait(600); };
+// R154: following a link to a new page moves focus to <main> under the new title
+{ await p.goto(U + "/issues"); await p.waitForSelector("h1"); const t0 = await p.title(); await p.locator('main a[href^="#/issue/"]').first().click(); await wait(600);
+  ok("R154 route change: focus on main[tabindex=-1], title changed", await p.evaluate(() => document.activeElement?.matches("main#main[tabindex='-1']")) && (await p.title()) !== t0, await p.title()); }
 // ---- Search facets ----
 await p.goto(U + "/search/libre"); await p.waitForSelector("text=chapters for"); await wait(800);
 ok("result cards use content-visibility", await p.evaluate(() => [...document.querySelectorAll(".grid-pubs > li, .cv-list > li")].some((e) => getComputedStyle(e).contentVisibility === "auto")));
