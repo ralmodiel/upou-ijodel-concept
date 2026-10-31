@@ -129,19 +129,19 @@ export async function search0(q, { year, k = 20, fields } = {}) {
   // the worker never shows texts: once indexed, its copies of the long summaries are dead weight (the main thread keeps its own for the Reader)
   if (globalThis.WorkerGlobalScope && !S.dropped) { S.dropped = 1; for (const a of [...S.articles, ...Object.values(S.byId)]) for (const f of ["half", "one", "two"]) delete a[f]; }
   // typo words also search as their did-you-mean fix ("chatgtp teaching": "teaching" alone matched, so the empty-result fallback never ran)
-  const fix = didYouMean(q), qt = [...new Set([...tok(q), ...(fix ? tok(fix) : [])])].filter((w, _, all) => all.length < 4 || !QSTOP.has(w)), n = S.articles.length, total = new Array(n).fill(0), where = Array.from({ length: n }, () => []);
+  const fix = didYouMean(q), qt = [...new Set([...tok(q).slice(0, 12), ...(fix ? tok(fix) : [])])].filter((w, _, all) => all.length < 4 || !QSTOP.has(w)), n = S.articles.length, total = new Array(n).fill(0), where = Array.from({ length: n }, () => []);
   for (const [f, w] of FIELDS) if (!fields || fields.includes(f)) bm25(S.fieldIdx[f], qt).forEach((s, i) => { if (s > 0) { total[i] += w * s; where[i].push(f); } });
-  // Authors: any 3+ letter query word that is a substring of an author's name counts (first or last name).
+  // Authors: a 3+ letter query word equal to (full boost) or starting (partial) a name token counts.
   if (!fields || fields.includes("title")) {
     const ws = qt.filter((w) => w.length >= 3);
-    S.articles.forEach((a, i) => { const au = a.authors.join(" ").toLowerCase(); const h = ws.filter((w) => au.includes(w)).length; if (h) { total[i] += 12 * h; where[i].unshift("author"); } });
+    S.articles.forEach((a, i) => { const au = tok(a.authors.join(" ")); const h = ws.reduce((s, w) => s + (au.includes(w) ? 12 : au.some((t) => t.startsWith(w)) ? 5 : 0), 0); if (h) { total[i] += h; where[i].unshift("author"); } });
   }
   const lists = [top(total)], weights = [1];
   let qv = null;
   if (embedder && (!fields || fields.length === FIELDS.length)) {
-    qv = await qvec(q); const best = new Array(n).fill(-1);
+    qv = await qvec(fix || q); const best = new Array(n).fill(-1);
     S.chunks.forEach((_, c) => { const a = S.chunkArt[c]; if (a >= 0) best[a] = Math.max(best[a], cos(S.cv, c, qv)); });
-    lists.push([...best.keys()].sort((x, y) => best[y] - best[x]).slice(0, 50)); weights.push(1);
+    lists.push([...best.keys()].sort((x, y) => best[y] - best[x]).slice(0, 50)); weights.push(fix ? 0.3 : 1);
   }
   const pass = !fields || fields.includes("half");
   return Promise.all(rrf(lists, weights).filter((i) => !year || S.articles[i].year === year).slice(0, k).map(async (i) => ({ i, matched: where[i], passage: pass ? await bestPassage(i, qt, qv).catch(() => null) : null })));
@@ -164,7 +164,7 @@ export function didYouMean(q) {
     S.articles.forEach((a) => tok(a.title + " " + a.subjects.join(" ") + " " + a.abstract).forEach((w) => vocab.set(w, (vocab.get(w) || 0) + 1)));
   }
   let changed = false;
-  const out = tok(q).map((w) => {
+  const out = tok(q).slice(0, 12).map((w) => {
     if (vocab.has(w) || w.length < 4) return w;
     const max = w.length > 6 ? 2 : 1;
     let best, bd = 9, bn = 0;

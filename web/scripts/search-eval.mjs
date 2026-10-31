@@ -44,6 +44,8 @@ const SET = [
   ["Phakathi", "104"], ["Clemente mindfulness", "264"],
   ["what are students preferred online learning attributes", "108"], ["how do instructors cope with online teaching in Tanzania", "292"], ["how ready are students for remote learning at a state university", "284"],
 ];
+// round 120: one-transposition typos (the did-you-mean path); expected article in the top 3, gate TOP3 >= 0.9
+const TYPO = [["tradtiional learning","77"],["nomral learning","284"],["appyling learning","67"],["consrtaints learning","74"],["augmneting learning","16"],["engaegment student","291"],["innoavtions learning","339"],["invesitgation online","227"],["perecived students","257"],["altenrative teaching","33"],["reaidness perception","9"],["facbeook developing","39"],["conojint study","108"],["soical presence","294"],["instrcutional higher","297"],["medaited technology","90"],["assoication nursing","41"],["hisotrya based","8"],["perecived classroom","19"],["interpertation learning","69"],["tranistions learning","254"],["chtagpt teaching","250"],["extneding open","231"],["evertyhing research","322"],["fleixble learning","300"]];
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? +process.argv[i + 1] : d; };
 async function run(label) {
   let h1 = 0, h5 = 0; const miss = [];
@@ -53,12 +55,16 @@ async function run(label) {
     const p = r.findIndex((a) => a.id === id);
     if (p === 0) h1++; if (p >= 0) h5++; else miss.push(`${label}: ${q} -> want ${id}, got ${r.slice(0, 3).map((a) => a.id).join(",") || "none"}`);
   }
+  let h3 = 0;
+  for (const [q, id] of TYPO) { let r = await E.searchArticles(q, { k: 3 }); if (!r.length) { const f = E.didYouMean(q); if (f) r = await E.searchArticles(f, { k: 3 }); } if (r.some((a) => a.id === id)) h3++; else miss.push(`${label}: typo ${q} -> want ${id}`); }
+  for (const w of ["ann", "lee"]) { const a = (await E.searchArticles(w, { k: 1 }))[0]; if (!a || !(a.authors.join(" ").toLowerCase().match(/[a-z]+/g) || []).includes(w)) { miss.push(`${label}: author ${w} not exact-name first`); h3 = 0; } } // round 121
+  console.log(`${label} transposition top3 ${(h3 / TYPO.length).toFixed(3)}`);
   miss.slice(0, 8).forEach((m) => console.log("miss " + m));
-  return [h1 / SET.length, h5 / SET.length];
+  return [h1 / SET.length, h5 / SET.length, h3 / TYPO.length >= 0.9];
 }
 // BM25-only floor (before the model loads), then hybrid with the vector model (what the UI uses once ready)
-const [b1, b5] = await run("bm25"); console.log(`${SET.length} queries BM25 only: hit@1 ${b1.toFixed(3)}, hit@5 ${b5.toFixed(3)}`);
-let v1 = b1, v5 = b5;
-if (!process.argv.includes("--no-vec")) { await E.ready(false); [v1, v5] = await run("hybrid"); }
-const ok = b1 >= arg("--bm1", 0.8) && b5 >= arg("--bm5", 0.9) && v1 >= arg("--min1", 0.93) && v5 >= arg("--min5", 0.98);
+const [b1, b5, t1] = await run("bm25"); console.log(`${SET.length} queries BM25 only: hit@1 ${b1.toFixed(3)}, hit@5 ${b5.toFixed(3)}`);
+let v1 = b1, v5 = b5, t2 = t1;
+if (!process.argv.includes("--no-vec")) { await E.ready(false); [v1, v5, t2] = await run("hybrid"); }
+const ok = t1 && t2 && b1 >= arg("--bm1", 0.8) && b5 >= arg("--bm5", 0.9) && v1 >= arg("--min1", 0.93) && v5 >= arg("--min5", 0.98);
 console.log(`${SET.length} queries hybrid: hit@1 ${v1.toFixed(3)}, hit@5 ${v5.toFixed(3)}, ${ok ? "0 FAIL" : "1 FAIL"}`); process.exit(ok ? 0 : 1);

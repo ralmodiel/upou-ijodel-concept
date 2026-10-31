@@ -21,4 +21,9 @@ async function check(name, hash, seed) {
 }
 for (const h of HASH) await check("hash " + h.slice(0, 60), h, []);
 for (const k of KEYS) for (const [i, v] of BAD.entries()) await check(`localStorage ${k} #${i}`, k === "ijodel-adv" || k === "ijodel-adv-mode" ? "/advanced" : k.includes("list") ? "/list" : k === "ijodel-cite" ? "/read/3" : "/search", [[k, v]]);
+// rounds 128-129: a 200k-char query is capped before the engine, and the title stays short and control-free
+{ const p = await (await b.newContext()).newPage(); await p.addInitScript(() => { window.__posted = 0; const o = Worker.prototype.postMessage; Worker.prototype.postMessage = function (m) { window.__posted = Math.max(window.__posted, String(m?.a?.[0] ?? "").length); return o.apply(this, arguments); }; });
+  const t0 = Date.now(); await p.goto(U + "#/search/" + big + "%00%1f"); await p.waitForSelector("[role=status] b", { timeout: 10000 }); const ms = Date.now() - t0;
+  const [len, ctl, posted] = await p.evaluate(() => [document.title.length, /[\u0000-\u001f]/.test(document.title), window.__posted]);
+  ok("R128 /search/<200k> renders under 300 ms after load", ms < 300, ms + " ms"); ok("R128 query sent to the worker <= 300 chars", posted > 0 && posted <= 300, posted); ok("R129 title <= 120 chars, no control chars", len <= 120 && !ctl, len); }
 await b.close(); console.log(`${n} cases, ${bad} FAIL`); process.exit(bad ? 1 : 0);

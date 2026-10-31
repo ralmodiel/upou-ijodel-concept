@@ -33,6 +33,7 @@ const useHash = () => {
   }, [h]);
   return h;
 };
+export const qcap = (s) => dec(s.slice(0, 1200)).replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 300); // hostile hashes: <=300 chars, no control characters before the engine or document.title see them
 export const dec = (s) => { try { return decodeURIComponent(s); } catch { return s; } }; // hostile hashes (%E0%A4%A) must not throw
 export const Link = ({ to, className = "", children, ...rest }) => <a href={"#" + to} className={className} {...rest}>{children}</a>;
 export const by = (a) => a.authors.join("; ");
@@ -504,7 +505,7 @@ export const Card = memo(function Card({ a, q, qa, terms, extra }) {
   return (
     <li draggable onDragStart={dragChip(a)} className="flex gap-4 rounded-xl border border-line bg-surface p-4 shadow-sm transition hover:shadow-md sm:p-5">
       <Link to={"/read/" + a.id} className="pub-link hidden w-28 shrink-0 sm:block" aria-hidden="true" tabIndex={-1}><Cover a={a} small /></Link>
-      <div className="min-w-0 flex-1"><Link to={"/read/" + a.id} className="font-serif text-2xl leading-snug text-link hover:underline">{hl(a.title, q)}</Link>
+      <div className="min-w-0 flex-1"><Link to={"/read/" + a.id} className="line-clamp-2 font-serif text-2xl leading-snug text-link hover:underline">{hl(a.title, q)}</Link>
       <p className="mt-1 text-sm text-ink-3">{by(a)} · {a.issue.label}</p>
       <p className="mt-3 text-[15px] leading-relaxed text-ink-2">{hl(clip(a.abstract || a.half || "", 380), q)}</p>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
@@ -567,7 +568,8 @@ function Search({ q0 }) {
   const [from, setFrom] = useState(years[0]), [to, setTo] = useState(years.at(-1)), [author, setAuthor] = useState(""), [sort, setSort] = useState("relevance"), [view, setView] = useState("grid");
   const [open, setOpen] = useState(() => matchMedia("(min-width:1024px)").matches), [allSubj, setAllSubj] = useState(false), [last, setLast] = useState("");
   const [err, setErr] = useState(false);
-  const run = async (raw) => { const text = parseQuery(raw).text; setErr(false); try { setBase(text ? await searchArticles(text, { k: 200, fields: scope.join(",").split(",") }) : all.map((a) => ({ ...a, matched: [] }))); } catch { setErr(true); setBase([]); } };
+  const gen = useRef(0); // a slower earlier search must not overwrite the later list
+  const run = async (raw) => { const text = parseQuery(raw).text, g = ++gen.current; setErr(false); try { const r = text ? await searchArticles(text, { k: 200, fields: scope.join(",").split(",") }) : all.map((a) => ({ ...a, matched: [] })); if (g === gen.current) setBase(r); } catch { if (g === gen.current) { setErr(true); setBase([]); } } };
   useEffect(() => { setQ(q0 || ""); run(q0 || ""); setShown(PAGE); }, [q0, scope]);
   const ms = useModel().s; useEffect(() => { if (ms === "ready" && q0) run(q0); }, [ms]); // re-rank once the vectors are in
   const [issue, setIssue] = useState(""), [shown, setShown] = useState(PAGE);
@@ -602,6 +604,7 @@ function Search({ q0 }) {
         <h1 className="font-serif text-3xl">Search</h1>
         <p className="mt-1 text-white/75">Search all {all.length} chapters; matches in a title count most, then the abstract, then the paper’s content. Best passages appear only when “Full content” is searched.</p>
         <SearchBox value={q} onChange={setQ} placeholder="Keywords or a question, e.g. micro-credentials" className="mt-4" btn="bg-action-2-fill hover:bg-action-fill" />
+        <a href="#count" onClick={(e) => { e.preventDefault(); document.getElementById("count")?.focus(); }} className="skip">Skip to results</a>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm"><span className="text-white/70">Search in:</span>
           {SCOPES.map(([k, l]) => { const on = scope.includes(k.split(",")[0]); return <button type="button" key={k} aria-pressed={on} onClick={() => { const f = k.split(","); const next = on ? scope.filter((x) => !f.includes(x)) : [...scope, ...f]; if (next.length) setScope(next); }} className={`min-h-11 rounded-full border px-4 ${on ? "border-sky bg-sky text-navy font-bold" : "border-white/50 text-white hover:bg-white/10"}`}>{on ? "✓ " : ""}{l}</button>; })}
         </div>
@@ -623,7 +626,7 @@ function Search({ q0 }) {
         </aside>
         <div className="min-w-0">
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <p className="mr-auto text-sm text-ink-2" role="status" aria-atomic="true"><b>{list.length}</b> of {all.length} chapters{q0 ? <> for “{q0}”</> : ""}<span className="sr-only">{active.length ? `, ${active.length} filter${active.length > 1 ? "s" : ""}` : ""}, sorted by {{ relevance: q0 ? "relevance" : "default order", newest: "newest first", oldest: "oldest first", title: "title A to Z" }[sort]}</span></p>
+            <p id="count" tabIndex={-1} className="mr-auto text-sm text-ink-2" role="status" aria-atomic="true"><b>{list.length}</b> of {all.length} chapters{q0 ? <> for “{q0}”</> : ""}<span className="sr-only">{active.length ? `, ${active.length} filter${active.length > 1 ? "s" : ""}` : ""}, sorted by {{ relevance: q0 ? "relevance" : "default order", newest: "newest first", oldest: "oldest first", title: "title A to Z" }[sort]}</span></p>
             <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort" className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm"><option value="relevance">{q0 ? "Most relevant" : "Default order"}</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="title">Title A–Z</option></select>
             {q0 && <button type="button" aria-pressed={!!isSaved} onClick={toggleSave} title={allow("prefs") ? "Saved on this device" : "Saved for this visit; allow search history and settings in Cookie settings to keep it"} className="min-h-10 rounded-md border border-line bg-surface px-3 text-sm text-link hover:bg-navy-soft disabled:opacity-40">{isSaved ? "★ Saved" : "☆ Save search"}</button>}
             <ViewToggle view={view} setView={setView} />
@@ -803,7 +806,7 @@ export default function App() {
   const parts = route.split("/").filter(Boolean);
   const art = state === "ok" && parts[0] === "read" ? window.__S.byId[parts[1]] : null;
   const PAGE = { search: "Search", advanced: "Advanced search", maps: "Maps", privacy: "Privacy notice", about: "About", issues: "Issues", topics: "Topics", list: "View lists" };
-  const seoT = art ? art.title : PAGE[parts[0]] ? (parts[0] === "search" && parts[1] ? `Search: ${parts[1].replace(/%[0-9a-f]{2}/gi, dec)}` : PAGE[parts[0]]) : "";
+  const seoT = art ? art.title : PAGE[parts[0]] ? (parts[0] === "search" && parts[1] ? `Search: ${qcap(parts[1]).slice(0, 80)}` : PAGE[parts[0]]) : "";
   useSeo(seoT ? seoT + " | IJODeL" : "IJODeL — International Journal on Open and Distance e-Learning", art ? (art.abstract || art.half || "").replace(/\s+/g, " ").slice(0, 155) : "IJODeL: open-access scholarly articles on open and distance e-learning. Browse, search and read chapters by issue, topic and author.");
   return (
     <>
@@ -813,7 +816,7 @@ export default function App() {
       {!online && <p role="status" className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-950 print:hidden">You are offline. Pages already opened still work; new search data or chapters may not load until you reconnect.</p>}
       <main id="main" tabIndex={-1} className={parts[0] === undefined || state !== "ok" ? "min-h-[60vh]" : ["search", "advanced", "maps"].includes(parts[0]) ? "mx-auto max-w-6xl min-[1536px]:max-w-[88rem] px-4 py-8 sm:px-8" : "mx-auto max-w-5xl px-4 py-8"}>
         {state === "loading" ? <div className="mx-auto max-w-6xl min-[1536px]:max-w-[88rem] p-8" role="status" aria-label="Loading the journal index"><div className="skeleton h-64" /><div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="skeleton aspect-[3/4]" />)}</div></div> : state !== "ok" ? <div className="p-8" role="alert"><p>{state}</p>{!online && <p className="mt-1 text-ink-2">You are offline.</p>}<button type="button" onClick={() => location.reload()} className="mt-3 min-h-11 rounded-full bg-action-fill px-5 text-white">Retry</button></div> :
-          <Boundary key={route.startsWith("/maps") ? "/maps" : route}>{parts[0] && !ROUTES.includes(parts[0]) ? <NotFound route={route} /> : parts[0] === "privacy" ? <Suspense fallback={<div className="skeleton h-[60vh]" role="status" aria-label="Loading" />}><Privacy /></Suspense> : parts[0] === "about" ? <Suspense fallback={<div className="skeleton h-[60vh]" role="status" aria-label="Loading" />}><About /></Suspense> : parts[0] === "read" ? <Reader id={parts[1]} at={parts[2] === "p" && /^\d+$/.test(parts[3] || "") ? [parts[3], dec(parts[4] || "")] : null} sec={parts[2] === "s" && /^(overview|faq|related)$/.test(parts[3] || "") ? parts[3] : null} /> : parts[0] === "list" ? (parts[1] === "share" ? <SharedList name={parts[2]} ids={parts[3]} /> : <MyList lid={parts[1]} />) : parts[0] === "issues" ? <Issues /> : parts[0] === "topics" ? <Topics /> : parts[0] === "advanced" ? <Suspense fallback={<><h1 className="font-serif text-3xl">Advanced search</h1><AdvIntro /><div className="skeleton mt-4 h-[85vh]" role="status" aria-label="Loading" /></>}><Advanced share={parts[1] === "s" ? parts[2] : null} /></Suspense> : parts[0] === "maps" ? <Suspense fallback={<><h1 className="font-serif text-3xl">Relationship map</h1><MapsIntro /><div className="skeleton mt-4 h-[85vh]" role="status" aria-label="Loading" /></>}><Maps kind={parts[1]} id={parts[2] && dec(parts[2])} /></Suspense> : parts[0] === "search" ? <Search q0={dec(parts[1] || "")} /> :
+          <Boundary key={route.startsWith("/maps") ? "/maps" : route}>{parts[0] && !ROUTES.includes(parts[0]) ? <NotFound route={route} /> : parts[0] === "privacy" ? <Suspense fallback={<div className="skeleton h-[60vh]" role="status" aria-label="Loading" />}><Privacy /></Suspense> : parts[0] === "about" ? <Suspense fallback={<div className="skeleton h-[60vh]" role="status" aria-label="Loading" />}><About /></Suspense> : parts[0] === "read" ? <Reader id={parts[1]} at={parts[2] === "p" && /^\d+$/.test(parts[3] || "") ? [parts[3], dec(parts[4] || "")] : null} sec={parts[2] === "s" && /^(overview|faq|related)$/.test(parts[3] || "") ? parts[3] : null} /> : parts[0] === "list" ? (parts[1] === "share" ? <SharedList name={parts[2]} ids={parts[3]} /> : <MyList lid={parts[1]} />) : parts[0] === "issues" ? <Issues /> : parts[0] === "topics" ? <Topics /> : parts[0] === "advanced" ? <Suspense fallback={<><h1 className="font-serif text-3xl">Advanced search</h1><AdvIntro /><div className="skeleton mt-4 h-[85vh]" role="status" aria-label="Loading" /></>}><Advanced share={parts[1] === "s" ? parts[2] : null} /></Suspense> : parts[0] === "maps" ? <Suspense fallback={<><h1 className="font-serif text-3xl">Relationship map</h1><MapsIntro /><div className="skeleton mt-4 h-[85vh]" role="status" aria-label="Loading" /></>}><Maps kind={parts[1]} id={parts[2] && dec(parts[2])} /></Suspense> : parts[0] === "search" ? <Search q0={qcap(parts[1] || "")} /> :
           ["cat", "year", "issue", "tag"].includes(parts[0]) ? <Group kind={parts[0]} id={parts[1]} /> : <Browse />}</Boundary>}
       </main>
       <footer className="mt-10 bg-ink-fill text-sm text-white/80 print:hidden">

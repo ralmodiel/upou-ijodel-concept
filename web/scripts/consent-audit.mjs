@@ -19,7 +19,7 @@ async function visit(c, withdraw, undecided) {
     return { p, hosts, s: await dump(p), cookies: await c.cookies() };
   }
   await p.goto(U + "/#/read/10"); await p.waitForSelector("h1");
-  await p.getByRole("button", { name: /Add to view list|\+/ }).first().click().catch(() => {}); await p.waitForTimeout(300);
+  const add = p.getByRole("button", { name: /Add to (a )?view list|\+/ }).first(); await add.scrollIntoViewIfNeeded(); await p.waitForTimeout(2500); await add.click().catch(() => {}); /* the popover closes on scroll: scroll first */ await p.waitForTimeout(300);
   await p.getByLabel("New list name").fill("Mine", { timeout: 3000 }).then(() => p.getByLabel("New list name").press("Enter")).catch(() => {});
   await p.goto(U + "/"); const box = p.getByLabel("Search chapters").first(); await box.focus(); await box.fill("libre"); await p.keyboard.press("Enter");
   await p.waitForSelector("text=chapters for").catch(() => {});
