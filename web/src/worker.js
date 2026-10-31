@@ -3,6 +3,6 @@ import { load, search0, didYouMean, ready } from "./engine.js";
 const L = load();
 const OPS = { search0, didYouMean, ready: (persist) => ready(persist, (m) => postMessage({ m })) };
 onmessage = async ({ data: { id, op, a } }) => {
-  try { await L; postMessage({ id, r: await OPS[op](...a) }); }
+  try { await L; postMessage({ id, r: (Object.hasOwn(OPS, op) ? await OPS[op](...a) : Promise.reject(new Error("unknown op"))) }); }
   catch (e) { postMessage({ id, e: String(e?.message || e) }); }
 };

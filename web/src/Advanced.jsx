@@ -18,6 +18,8 @@ const empty = () => ({ req: [], boost: [], exp: [], exc: [] });
 // (a shared link too): known kinds and string fields only, at most 50 chips per area
 const clean = (v) => Object.fromEntries(AREAS.map(([k]) => [k, (Array.isArray(v?.[k]) ? v[k] : []).filter((c) => c && Object.hasOwn(KIND, c.k) && typeof c.v === "string").slice(0, 50)
   .map((c) => ({ k: c.k, v: c.v.slice(0, 200), l: String(c.l ?? c.v).slice(0, 200), ...(c.h === "L" || c.h === "H" ? { h: c.h } : {}) }))]));
+// a dropped chip is untrusted JSON: same whitelist as stored chips, or undefined
+export const dropChip = (area, s) => clean({ [area]: [JSON.parse(s)] })[area][0];
 const load = () => { try { return clean(JSON.parse(pref.get("ijodel-adv") || "{}")); } catch { return empty(); } };
 // past/future: [{ a: areas before/after the step, m: what the step did }] for Undo/Redo and the History list
 let adv = { areas: load(), past: [], future: [] }, note = "", noteUndo = false;
@@ -177,7 +179,7 @@ function Area({ id, name, hint, chips, F, onLookup, diff }) {
     return () => { document.removeEventListener("dragstart", on); document.removeEventListener("dragend", off); document.removeEventListener("drop", off); };
   }, []);
   return (
-    <div onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setOver(true); if (id === "boost") setAt(slot(e)); }} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOver(false); }} onDrop={(e) => { e.preventDefault(); setOver(false); setAt(null); try { addChip(id, JSON.parse(e.dataTransfer.getData("text/chip")), id === "boost" ? slot(e) : undefined); } catch { /* not a chip */ } }}
+    <div onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setOver(true); if (id === "boost") setAt(slot(e)); }} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOver(false); }} onDrop={(e) => { e.preventDefault(); setOver(false); setAt(null); try { const c = dropChip(id, e.dataTransfer.getData("text/chip")); if (c) addChip(id, c, id === "boost" ? slot(e) : undefined); } catch { /* not a chip */ } }}
       className={`relative min-h-28 rounded-xl border p-3 ${id === "exc" ? "border-dashed" : ""} ${over ? "border-action bg-navy-soft" : "border-line bg-surface"}`}>
       {drag && <div aria-hidden="true" className={`absolute inset-0 z-30 grid place-items-center rounded-xl border-2 border-dashed text-sm font-bold ${over ? "border-action bg-navy-soft/90 text-navy" : "border-action/40 bg-surface/60 text-ink-3"}`}>Drop to add to {name}</div>}
       {id === "exp" && <Swap a="req" b="exp" dir="v" />}{id === "exc" && <Swap a="exp" b="exc" dir="h" />}

@@ -30,6 +30,12 @@ function ref(ar, mode) {
   }
   return out;
 }
+// R138: hostile drop payloads must not become chips (dropChip returns undefined or throws, never a chip)
+{ const mk = new Function("pref", grab(/const KIND = [^\n]*\n/) + grab(/const AREAS = \[[\s\S]*?\n\];\n/) + grab(/const clean = [\s\S]*?\n(?=\/\/ a dropped)/) + grab(/export const dropChip = [^\n]*\n/).replace("export ", "") + "; return dropChip;");
+  const drop = mk(); let chips = 0, errs = 0;
+  for (const p of ['{"k":"__proto__","v":"x"}', '{"k":"constructor","v":"x"}', '{"k":"tag","v":{"a":1}}', '{"k":"tag"}', 'null', '[1,2]', '{"k":"evil","v":"x"}']) { try { if (drop("req", p)) chips++; } catch { errs++; } }
+  if (!drop("req", '{"k":"tag","v":"ok"}')) { chips = -1; }
+  console.log(`hostile drops: ${chips} chips added, ${errs} thrown (JSON errors are caught by onDrop)`); if (chips) { console.log("FAIL hostile chip accepted"); process.exit(1); } }
 const N = +process.argv[2] || 3000; let bad = 0; const show = [];
 for (let t = 0; t < N; t++) {
   const ar = { req: [], exp: [], exc: [], boost: [] }, used = new Set();

@@ -98,7 +98,7 @@ const Graph3D = forwardRef(function Graph3D({ nodes: all, links: allLinks, seed,
   const linkCol = (l) => (touch(l) ? "#50e0f8" : st.current.focus ? "rgba(80,224,248,.12)" : "rgba(80,224,248,.6)");
 
   useEffect(() => {
-    const f = ForceGraph3D()(box.current).backgroundColor("#f7f8fb").showNavInfo(false).nodeLabel((n) => `${n.kind}: ${n.label}`).linkLabel((l) => `${l.source.label} → ${l.rel || "linked"} → ${l.target.label}`)
+    const f = ForceGraph3D()(box.current).backgroundColor("#ffffff").showNavInfo(false).nodeLabel((n) => `${n.kind}: ${n.label}`).linkLabel((l) => `${l.source.label} → ${l.rel || "linked"} → ${l.target.label}`)
       .linkDirectionalParticles(0).onNodeClick((n) => st.current.onSelect(n.id)).onBackgroundClick(() => st.current.onSelect(null)).onNodeHover((n) => st.current.onHover(n ? n.id : null));
     f.scene().add(new THREE.AmbientLight(0xffffff, 1.6));
     fg.current = f;
