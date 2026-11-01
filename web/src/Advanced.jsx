@@ -326,7 +326,7 @@ export function Advanced({ share, entry }) {
       <button type="button" onClick={() => document.getElementById("adv-results")?.focus()} className="sticky bottom-3 z-20 mx-auto mt-4 block min-h-11 rounded-full bg-action-fill px-6 font-bold text-white shadow-lg hover:bg-action-2-fill sm:hidden">Show {list.length} result{list.length === 1 ? "" : "s"}</button>
       <div id="adv-results" tabIndex={-1} className="mt-5 flex flex-wrap items-center gap-3 border-t border-line pt-4 outline-none">
         <p className="text-sm"><b>{list.length}</b> chapter{list.length === 1 ? "" : "s"}{total > 0 && <span className="text-ink-3"> · {strict} match all required · {mode === "one" ? " · each has at least one Additional filter" : ` · +${viaExpand} via Expand`}</span>}</p>
-        <ExportBtns rows={list} name="ijodel-advanced" />
+        <ExportBtns rows={list} name="IJODeL-advanced" />
       </div>
       <div className="mt-4 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]"><div className="min-w-0">
         {list.length === 0 ? <p className={EMPTY}>No chapter fits all of this. Move a Required filter to Expand, or remove an Exclude.</p>

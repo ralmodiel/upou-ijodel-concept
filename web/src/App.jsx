@@ -119,7 +119,7 @@ const cleanList = (name, ids) => ({ name: String(name || "").trim().slice(0, NAM
 const addLists = (ls) => { const l = getLists(), t = Date.now().toString(36); saveLists([...l, ...ls.map((x, i) => ({ id: "l" + t + i, ...x }))]); return "l" + t + "0"; };
 const download = (name, text, type) => { const u = URL.createObjectURL(new Blob([text], { type })), a = document.createElement("a"); a.href = u; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(u), 1000); };
 // Export a whole result list (all pages, not only the ones shown); each record keeps its stable article URL as id
-export function ExportBtns({ rows, name = "ijodel-results" }) {
+export function ExportBtns({ rows, name = "IJODeL-results" }) {
   const b = "min-h-10 rounded-md border border-line bg-surface px-3 text-sm text-link hover:bg-navy-soft";
   return rows.length > 0 && <span role="group" aria-label={`Export all ${rows.length} results`} className="flex flex-wrap items-center gap-1.5 text-sm"><span className="text-ink-3">Export all:</span>
     <button type="button" className={b} onClick={() => download(name + ".ris", ris(rows), "application/x-research-info-systems")}>RIS</button>

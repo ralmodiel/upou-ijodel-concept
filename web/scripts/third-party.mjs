@@ -42,7 +42,7 @@ for (const [name, pat] of [["jsDelivr", /cdn\.jsdelivr\.net/], ["Hugging Face", 
   if (name === "jsDelivr" && self) ok("jsDelivr blocked: self-hosted model still ready", state === "ready", state);
   else ok(`${name} blocked: keyword-only notice`, state === "failed", state);
   await p.getByLabel("Search chapters").first().fill("libre"); await p.keyboard.press("Enter");
-  ok(`${name} blocked: keyword results still shown`, await p.waitForSelector("text=chapters for", { timeout: 15000 }).then(() => true).catch(() => false));
+  ok(`${name} blocked: keyword results still shown`, await p.waitForSelector("text=results for", { timeout: 15000 }).then(() => true).catch(() => false));
   await c.close();
 }
 // R189: a fresh visitor (no consent stored) loads 8 routes; every request goes to the page origin

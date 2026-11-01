@@ -29,13 +29,13 @@ const fill4 = async () => { await p.goto(U + "/advanced"); const code = await p.
 { await p.goto(U + "/issues"); await p.waitForSelector("h1"); const t0 = await p.title(); await p.locator('main a[href^="#/issue/"]').first().click(); await wait(600);
   ok("R154 route change: focus on main[tabindex=-1], title changed", await p.evaluate(() => document.activeElement?.matches("main#main[tabindex='-1']")) && (await p.title()) !== t0, await p.title()); }
 // ---- Search facets ----
-await p.goto(U + "/search/libre"); await p.waitForSelector("text=chapters for"); await wait(800);
+await p.goto(U + "/search/libre"); await p.waitForSelector("text=results for"); await wait(800);
 ok("result cards use content-visibility", await p.evaluate(() => [...document.querySelectorAll(".grid-pubs > li, .cv-list > li")].some((e) => getComputedStyle(e).contentVisibility === "auto")));
 ok("search shows the issues' covers", await p.getByRole("region", { name: "Issues in these results" }).locator("img").count() > 0);
 ok("big cards show a best passage with its page", await p.getByLabel("Best-fit passage").first().innerText().then((t) => /best passage · pdf page \d+/i.test(t)));
 { const l = p.getByRole("link", { name: /^Relationship map of/ }).first(), b = await l.boundingBox();
   let hit = true; for (const [dx, dy] of [[.1, .1], [.5, .5], [.9, .9], [.9, .1], [.1, .9]]) { const x = b.x + b.width * dx, y = b.y + b.height * dy; await p.mouse.move(x, y); hit &&= await p.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("a")?.getAttribute("aria-label")?.startsWith("Relationship map"), [x, y]); }
-  ok("Map link on a big card is hit across its whole area", hit); await l.click(); await p.waitForURL(/maps\/pub/); ok("Map link opens the relationship map", true); await p.goBack(); await p.waitForSelector("text=chapters for"); await wait(500); }
+  ok("Map link on a big card is hit across its whole area", hit); await l.click(); await p.waitForURL(/maps\/pub/); ok("Map link opens the relationship map", true); await p.goBack(); await p.waitForSelector("text=results for"); await wait(500); }
 const cat = p.locator('xpath=//span[normalize-space()="Category"]/following-sibling::div//button');
 const nCat0 = await cat.count(); ok("search 'libre': categories limited to matches", nCat0 > 0 && nCat0 < 8, `(${nCat0})`);
 const yrs0 = await p.locator('select[aria-label="From year"] option').count(); ok("years limited", yrs0 < 12, `(${yrs0})`);
@@ -150,7 +150,7 @@ ok("FAQ shows PDF page + paragraph", /^Source: PDF page \d+, paragraph \d+$/.tes
   await p.evaluate(() => scrollTo(0, 1500)); await wait(300); const mid = await h.count();
   await p.evaluate(() => scrollTo(0, document.documentElement.scrollHeight)); await wait(500);
   ok("scroll hint stays while scrolling and hides at the footer", mid === 1 && await h.count() === 0); }
-{ await p.goto(U + "/search/libre"); await p.waitForSelector("text=chapters for"); await wait(600);
+{ await p.goto(U + "/search/libre"); await p.waitForSelector("text=results for"); await wait(600);
   const first = await p.locator(".grid-pubs > li a[href*='/read/'], .cv-list > li a[href*='/read/']").first().getAttribute("href").then((h) => h.match(/read\/(\d+)/)?.[1]);
   await p.evaluate(() => scrollTo(0, 0)); await p.getByRole("link", { name: /relationship map from/ }).click(); await p.waitForURL(/maps\/pub\/\d+/);
   ok("logo emblem on a search with a query seeds the map with the top result", !!first && p.url().endsWith("/maps/pub/" + first), `(${first})`);
@@ -194,8 +194,8 @@ ok("node click shows selection", await p.getByText("Add to Advanced Search as").
 ok("no page errors", errs.length === 0, errs.slice(0, 2).join(" | "));
 
 // ---- Cookie consent: fresh visitor ----
-{ await p.goto(U + "/search/" + encodeURIComponent('"learning without a physical classroom"')); await p.waitForSelector("text=chapters for", { timeout: 15000 }).catch(() => {}); await wait(800);
-  ok("an unmatched quoted phrase falls back to meaning, with a notice", await p.getByText("No chapter contains that exact phrase").count() === 1 && await p.getByText("Nothing found").count() === 0); }
+{ await p.goto(U + "/search/" + encodeURIComponent('"learning without a physical classroom"')); await p.waitForSelector("text=results for", { timeout: 15000 }).catch(() => {}); await wait(800);
+  ok("an unmatched quoted phrase is an exact zero, echoed (planner count)", /0 results for “"learning without a physical classroom"”/.test(await p.locator("main").innerText())); }
 { const c7 = await (await b.newContext({ viewport: { width: 1300, height: 900 } })).newPage();
   await c7.goto(U + "/"); await c7.getByRole("button", { name: "Customize…" }).click();
   ok("first visit: Customize opens the settings with every optional item off", await c7.getByRole("dialog", { name: "Cookie and privacy settings" }).count() === 1 && await c7.locator("#c-lists, #c-pref, #c-model, #c-counter").evaluateAll((e) => e.length === 4 && e.every((x) => !x.checked))); }
@@ -213,8 +213,8 @@ ok("no page errors", errs.length === 0, errs.slice(0, 2).join(" | "));
   ok("View lists only: lists allowed, history and settings not", cs.lists === true && cs.prefs === false && !cs.model && !cs.counter && ks.includes("ijodel-lists") && ks.every((x) => /^ijodel-(consent|lists?)$/.test(x)), ks.join(" ")); }
 { const c5 = await b.newContext({ viewport: { width: 1300, height: 900 } }); await c5.addInitScript(() => { sessionStorage.setItem("ijodel-lite", "1"); localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: true })); });
   const q5 = await c5.newPage(); let hf = 0; q5.on("request", (r) => { if (/huggingface\.co/.test(r.url())) hf++; });
-  await q5.goto(U + "/search/libre"); await q5.waitForSelector("text=chapters for"); await wait(2500);
-  ok("weak device: no model download, keyword search only", hf === 0 && (await q5.locator("main").innerText()).includes("chapters for")); await c5.close(); }
+  await q5.goto(U + "/search/libre"); await q5.waitForSelector("text=results for"); await wait(2500);
+  ok("weak device: no model download, keyword search only", hf === 0 && (await q5.locator("main").innerText()).includes("results for")); await c5.close(); }
 { const c2 = await (await b.newContext({ viewport: { width: 1300, height: 900 } })).newPage();
   await c2.goto(U + "/"); await c2.getByRole("dialog", { name: "Cookie and privacy choices" }).waitFor();
   ok("first visit shows the cookie banner", true);
@@ -234,7 +234,7 @@ ok("no page errors", errs.length === 0, errs.slice(0, 2).join(" | "));
   ok("document.title changes per route", /Maps \| IJODeL/.test(await p.title()), await p.title());
   const r = await fetch("http://localhost:4173/read/10/"); const h = await r.text();
   ok("static read page serves and links to the app", r.ok && /citation_title/.test(h) && /href="\.\.\/\.\.\/#\/read\/10"/.test(h)); }
-{ await p.goto(U + "/search/libre"); await p.waitForSelector("text=chapters for"); await wait(500);
+{ await p.goto(U + "/search/libre"); await p.waitForSelector("text=results for"); await wait(500);
   await p.getByRole("button", { name: /Full content/ }).click(); await wait(800);
   ok("no best passage when full content is not searched", await p.getByLabel("Best-fit passage").count() === 0);
   ok("search scope hint is shown", await p.getByText(/only when .Full content. is searched/).count() > 0); }
@@ -266,14 +266,14 @@ ok("Advanced adds the search words as a Required filter", await chips("Required"
   const c3 = await b.newContext({ viewport: { width: 1400, height: 1500 } });
   await c3.addInitScript(() => localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: true })));
   await c3.route(/huggingface|hf\.co|jsdelivr/, (r) => r.abort());
-  const f = await c3.newPage(); await f.goto(U + "/search/libre"); await f.waitForSelector("text=chapters for");
+  const f = await c3.newPage(); await f.goto(U + "/search/libre"); await f.waitForSelector("text=results for");
   ok("model failure shows keyword-only notice", await f.locator("[data-model=failed]").waitFor({ timeout: 30000 }).then(() => true).catch(() => false));
   ok("BM25 results still shown after model failure", await f.waitForFunction(() => +document.querySelector("[role=status] b")?.textContent > 0, null, { timeout: 15000 }).then(() => true).catch(() => false));
   await c3.close();
   // no consent: no model download on focus; worker blocked: in-thread fallback still searches
   const c4 = await b.newContext({ viewport: { width: 1400, height: 1500 } });
   await c4.addInitScript(() => { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); window.__noWorker = true; });
-  const g = await c4.newPage(), r4 = []; g.on("request", (r) => r4.push(r.url())); await g.goto(U + "/search/libre"); await g.waitForSelector("text=chapters for");
+  const g = await c4.newPage(), r4 = []; g.on("request", (r) => r4.push(r.url())); await g.goto(U + "/search/libre"); await g.waitForSelector("text=results for");
   await g.getByLabel("Search chapters").first().focus(); await g.waitForTimeout(800);
   ok("no model consent: nothing fetched from Hugging Face", !r4.some((u) => /huggingface/.test(u)));
   ok("in-thread fallback (no worker) returns results", await g.waitForFunction(() => +document.querySelector("[role=status] b")?.textContent > 0, null, { timeout: 15000 }).then(() => true).catch(() => false));
@@ -285,7 +285,7 @@ ok("Advanced adds the search words as a Required filter", await chips("Required"
     await tour.getByRole("button", { name: "Skip tour" }).click(); await t.reload(); await t.waitForSelector("text=Latest issues");
     const again = await t.getByRole("region", { name: "Quick tour" }).count(), stored = await t.evaluate(() => localStorage.getItem("ijodel-tour"));
     ok(`tour: steps and dismissal ${prefs ? "kept on the device with prefs consent" : "not stored without prefs consent"}`, step2 === 1 && (prefs ? again === 0 && stored === "1" : again === 1 && stored === null)); await cx.close(); } }
-await p.goto(U + "/search/libre"); await p.waitForSelector("text=chapters for"); await wait(600);
+await p.goto(U + "/search/libre"); await p.waitForSelector("text=results for"); await wait(600);
 await p.locator('xpath=//span[normalize-space()="Category"]/following-sibling::div//button').first().click(); await wait();
 ok("search: status announces filters and sort", /1 filter, sorted by relevance/.test(await p.locator("[role=status][aria-atomic]").innerText()));
 await p.getByRole("button", { name: /^Remove filter / }).first().click(); await wait();
@@ -334,7 +334,7 @@ await ctx.setOffline(true); await wait(300); ok("offline message", await p.getBy
 { const m = await b.newPage({ viewport: { width: 390, height: 800 } }); await m.goto(U + "/advanced"); await m.waitForSelector("text=Advanced search");
   const sb = m.getByRole("button", { name: /^Best suggestions/ }); const hid = !(await m.getByRole("complementary", { name: "Best suggestions" }).isVisible()); await sb.click();
   ok("phone: Advanced suggestions fold behind a button", hid && await m.getByRole("complementary", { name: "Best suggestions" }).isVisible());
-  await m.goto(U + "/search/libre"); await m.waitForSelector("text=chapters for"); ok("phone: search filters fold behind a button", !(await m.getByText("Category", { exact: true }).isVisible()) && await m.getByRole("button", { name: /^Filters/ }).isVisible());
+  await m.goto(U + "/search/libre"); await m.waitForSelector("text=results for"); ok("phone: search filters fold behind a button", !(await m.getByText("Category", { exact: true }).isVisible()) && await m.getByRole("button", { name: /^Filters/ }).isVisible());
   await m.close(); }
 { const d = await b.newPage({ colorScheme: "dark" }); await d.goto(U + "/maps/pub/295"); await d.waitForSelector("svg g[data-node]");
   ok("site stays light when the OS prefers dark", await d.evaluate(() => { const m = getComputedStyle(document.body).backgroundColor.match(/\d+/g).map(Number); return m[0] + m[1] + m[2] > 600; }));
@@ -342,22 +342,22 @@ await ctx.setOffline(true); await wait(300); ok("offline message", await p.getBy
 { const h = await b.newPage({ viewport: { width: 1300, height: 900 } }); await h.goto(U + "/"); await h.waitForSelector(".row-track .cover.gen");
   const [pairs, same] = await h.evaluate(() => { let n = 0, k = 0; document.querySelectorAll(".row-track").forEach((t) => { const c = [...t.querySelectorAll(".cover.gen")].map((e) => e.style.background + e.querySelector("svg").innerHTML.slice(0, 12)); for (let i = 1; i < c.length; i++) { n++; if (c[i] === c[i - 1]) k++; } }); return [n, k]; });
   ok("covers: neighbours in a row rarely look the same (<3%)", pairs > 50 && same / pairs < 0.03, `(${same}/${pairs})`); await h.close(); }
-{ await p.goto(U + "/search/chatgtp%20teaching"); await p.waitForSelector("text=chapters for"); await wait(600);  // round 55: a typo next to a real word still finds the article
+{ await p.goto(U + "/search/chatgtp%20teaching"); await p.waitForSelector("text=results for"); await wait(600);  // round 55: a typo next to a real word still finds the article
   ok("search: typo beside a real word (chatgtp teaching) finds the ChatGPT article", await p.getByText("ChatGPT — A Threat or an Aid", { exact: false }).first().isVisible().catch(() => false)); }
 // ---- rounds 56-65 ----
-{ await p.goto(U + "/search/" + encodeURIComponent('learning "distance education" year:2016-2018')); await p.waitForSelector("text=chapters for"); await p.waitForSelector(".grid-pubs > li p.text-xs", { timeout: 8000 }).catch(() => {});
+{ await p.goto(U + "/search/" + encodeURIComponent('learning "distance education" year:2016-2018')); await p.waitForSelector("text=results for"); await p.waitForSelector(".grid-pubs > li p.text-xs", { timeout: 8000 }).catch(() => {});
   const ys = await p.locator(".grid-pubs > li p.text-xs", { hasText: "· Vol" }).allInnerTexts();
   ok("56 operators: phrase and year shown as chips, results inside the years", await p.getByRole("link", { name: "Remove year: 2016–2018" }).count() === 1 && await p.getByRole("link", { name: "Remove “distance education”" }).count() === 1 && ys.length > 0 && ys.every((t) => /201[678] · Vol/.test(t)), `(${ys.length})`); }
-{ await p.goto(U + "/search/libre"); await p.waitForSelector("text=chapters for"); await wait(600);
+{ await p.goto(U + "/search/libre"); await p.waitForSelector("text=results for"); await wait(600);
   await p.getByRole("link", { name: "Show in chapter" }).first().click(); await p.waitForSelector("#r-passage mark", { timeout: 8000 }).catch(() => {});
   ok("57 Show in chapter opens the reader at the highlighted passage", await p.locator("#r-passage mark").count() > 0 && /\/read\/\d+\/p\/\d+/.test(p.url()));
   await p.getByRole("button", { name: "MLA", exact: true }).click();
   ok("58 citation style toggle: MLA", /vol\. \d+, no\. /.test(await p.getByRole("region", { name: "How to cite" }).innerText())); }
 { await p.goto(U + "/search/" + encodeURIComponent("libre year:1990")); await p.waitForSelector("text=Nothing found"); await p.getByRole("button", { name: /^✓ Title/ }).click(); await wait(600);
   const wide = await p.getByRole("button", { name: "Search in all fields" }).count(), tags = await p.locator("text=Or browse a popular tag").count();
-  await p.getByRole("link", { name: "Drop the query operators" }).click(); await p.waitForSelector("text=chapters for “libre”");
+  await p.getByRole("link", { name: "Drop the query operators" }).click(); await p.waitForSelector("text=results for “libre”");
   ok("61 zero results: widen scope, tag suggestions, drop operators in one click", wide === 1 && tags === 1 && !(await p.locator("text=Nothing found").count())); }
-{ await p.goto(U + "/search/libre"); await p.waitForSelector("text=chapters for"); await p.getByRole("button", { name: "☆ Save search" }).click();
+{ await p.goto(U + "/search/libre"); await p.waitForSelector("text=results for"); await p.getByRole("button", { name: "☆ Save search" }).click();
   await p.goto(U + "/search"); await p.waitForSelector("text=chapters"); const has = await p.locator("text=Saved searches:").count();
   await p.getByRole("button", { name: "Clear saved" }).click(); await wait(200);
   ok("62 saved search listed on /search, Clear saved removes it", has === 1 && await p.locator("text=Saved searches:").count() === 0); }
@@ -525,7 +525,7 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
     good &&= JSON.stringify(ch) === JSON.stringify(K.map((k) => k !== "tagrel" && T[k] <= lv)) && nodes >= prev; prev = nodes; log.push(`${lv}:${nodes}`); }
   ok("R224 Levels 1..5 tick exactly the TIER options; node count non-decreasing", good, log.join(" ")); await cx.close(); }
 { const cx = await b.newContext({ viewport: { width: 390, height: 844 } }), o = await cx.newPage(); // R225 back to top (phone: libre's results run past 2 screens)
-  await o.goto(U + "/search/libre"); await o.waitForSelector("text=chapters for"); await o.waitForTimeout(600); await o.evaluate(() => scrollTo(0, 2500)); await o.waitForTimeout(400);
+  await o.goto(U + "/search/libre"); await o.waitForSelector("text=results for"); await o.waitForTimeout(600); await o.evaluate(() => scrollTo(0, 2500)); await o.waitForTimeout(400);
   const btn = o.getByRole("button", { name: "Back to top" }), shown = await btn.isVisible(); if (shown) { await btn.focus(); await o.keyboard.press("Enter"); await o.waitForTimeout(400); }
   ok("R225 Back to top shows after 2500 px; Enter -> scrollY 0, focus on main", shown && await o.evaluate(() => scrollY === 0 && document.activeElement?.id === "main")); await cx.close(); }
 { const cx = await b.newContext({ viewport: { width: 1400, height: 1500 } }); await cx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); } catch {} }); const o = await cx.newPage(); // R230/R234 map counts and node-list filter (fresh context)
@@ -548,14 +548,14 @@ await p.goto(U + "/read/295"); await p.waitForSelector("h1"); await wait(300);
   const nx = o.getByRole("button", { name: /^Next in/ }).first(); const had = await nx.isVisible(); await nx.click(); await o.waitForTimeout(900);
   ok("R236 row arrows still follow the scroll position (Previous appears after Next)", had && await o.getByRole("button", { name: /^Previous in/ }).first().isVisible()); await cx.close(); }
 { const cx = await b.newContext({ viewport: { width: 700, height: 500 } }); const o = await cx.newPage(); // carry-over: Back to top is not under the bottom cookie banner at 640-860 px
-  await o.goto(U + "/search/libre"); await o.waitForSelector("text=chapters for"); await o.waitForTimeout(600); await o.evaluate(() => scrollTo(0, 2500)); await o.waitForTimeout(500);
+  await o.goto(U + "/search/libre"); await o.waitForSelector("text=results for"); await o.waitForTimeout(600); await o.evaluate(() => scrollTo(0, 2500)); await o.waitForTimeout(500);
   const hit = await o.evaluate(() => { const t = document.querySelector('button[aria-label="Back to top"]'); if (!t) return "none"; const r = t.getBoundingClientRect(), e = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return t === e || t.contains(e) ? "top" : "covered"; });
   ok("carry-over: Back to top is not covered by the cookie banner at 700 px", hit === "top", hit);
   await o.goto(U + "/issue/" + (await o.evaluate(() => Object.keys(window.__S.issues)[0]))); await o.waitForSelector("ol[aria-label=Contents] a");
   ok("carry-over: contents-list links are underlined", await o.locator("ol[aria-label=Contents] > li > a").first().evaluate((a) => getComputedStyle(a).textDecorationLine === "underline")); await cx.close(); }
 // batch 15 (fresh context): R242 focus ring, row fade at scroll 0, node-list filter on the 3D map
 { const cx = await b.newContext({ viewport: { width: 1400, height: 1500 } }); await cx.addInitScript(() => { try { localStorage.setItem("ijodel-consent", JSON.stringify({ prefs: true, model: false })); } catch {} }); const o = await cx.newPage();
-  await o.goto(U + "/search/libre"); await o.waitForSelector("text=chapters for"); await o.waitForTimeout(600); await o.keyboard.press("Tab");
+  await o.goto(U + "/search/libre"); await o.waitForSelector("text=results for"); await o.waitForTimeout(600); await o.keyboard.press("Tab");
   const ring = []; for (const s of ["input", "button:visible:enabled", "a[href^='#/read/']", "summary"]) { const el = o.locator(`main ${s}:not(.bg-navy-fill *, .on-navy *)`).first(); /* navy bands use a white ring on purpose */ if (!await el.count()) continue; await el.focus(); await o.waitForTimeout(350); ring.push([s, await el.evaluate((e) => { const c = getComputedStyle(e); return [c.outlineStyle, c.outlineWidth, c.outlineOffset, c.outlineColor].join(" "); })]); }
   ok("R242 focus ring identical for input, button, link, summary", ring.length >= 3 && new Set(ring.map((r) => r[1])).size === 1, ring.map((r) => r[1]).join(" | "));
   await o.goto(U + "/"); await o.waitForSelector("ul.row-track"); await o.waitForTimeout(600); const fl = () => o.evaluate(() => document.querySelector("ul.row-track").style.getPropertyValue("--fl"));
