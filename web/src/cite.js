@@ -21,8 +21,12 @@ export function citeParts(a) {
 export const citeText = (a) => citeParts(a).map((p) => p.t).join("");
 // BibTeX and RIS for a view list's chapters (export). Braces/newlines in fields are dropped so a title cannot break the entry.
 const bib = (s) => String(s ?? "").replace(/[{}\\\n\r]/g, "");
-export const bibtex = (as) => as.map((a) => `@article{ijodel${a.id},\n  author = {${bib(a.authors.join(" and "))}},\n  title = {${bib(a.title)}},\n  journal = {${JOURNAL}},\n  year = {${bib(a.year)}},\n  volume = {${bib(a.issue.vol)}},\n  number = {${bib(a.issue.no)}},\n  url = {${bib(a.url)}}\n}`).join("\n\n") + "\n";
-export const ris = (as) => as.map((a) => ["TY  - JOUR", ...a.authors.map((x) => "AU  - " + bib(x)), "TI  - " + bib(a.title), "JO  - " + JOURNAL, "PY  - " + bib(a.year), "VL  - " + bib(a.issue.vol), "IS  - " + bib(a.issue.no), "UR  - " + bib(a.url), "ER  - "].join("\r\n")).join("\r\n") + "\r\n";
+export const bibtex = (as) => as.map((a) => `@article{ijodel${a.id},\n  author = {${bib(a.authors.join(" and "))}},\n  title = {${bib(a.title)}},\n  journal = {${JOURNAL}},\n  year = {${bib(a.year)}},\n  volume = {${bib(a.issue.vol)}},\n  number = {${bib(a.issue.no)}},\n  url = {${bib(a.url)}}${a.abstract ? `,\n  abstract = {${bib(a.abstract.replace(/\s+/g, " "))}}` : ""}\n}`).join("\n\n") + "\n";
+export const ris = (as) => as.map((a) => ["TY  - JOUR", ...a.authors.map((x) => "AU  - " + bib(x)), "TI  - " + bib(a.title), "JO  - " + JOURNAL, "PY  - " + bib(a.year), "VL  - " + bib(a.issue.vol), "IS  - " + bib(a.issue.no), "UR  - " + bib(a.url), ...(a.abstract ? ["AB  - " + bib(a.abstract.replace(/\s+/g, " "))] : []), "ER  - "].join("\r\n")).join("\r\n") + "\r\n";
+// CSV (RFC 4180, every field quoted); the stable id is the article URL. A cell starting with = + - @ gets a leading ' so a
+// spreadsheet cannot run it as a formula.
+const cell = (v) => `"${String(v ?? "").replace(/\s+/g, " ").trim().replace(/^[=+\-@]/, "'$&").replace(/"/g, '""')}"`;
+export const csv = (as) => [["id", "title", "authors", "year", "journal", "volume", "issue", "keywords", "abstract"], ...as.map((a) => [a.url, a.title, a.authors.join("; "), a.year, JOURNAL, a.issue.vol, a.issue.no, (a.subjects || []).join("; "), a.abstract])].map((r) => r.map(cell).join(",")).join("\r\n") + "\r\n";
 // MLA 9 and Chicago author-date use full names as printed ("Last, Given" first, "Given Last" after); APA uses initials.
 const full = (n, first) => { const [l, ...g] = n.split(","), given = g.join(",").trim(); return !given ? l.trim() : first ? `${l.trim()}, ${given}` : `${given} ${l.trim()}`; };
 // the first name is inverted ("Cruz, Ana"), so even two authors take a comma before "and"

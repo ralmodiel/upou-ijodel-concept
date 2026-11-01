@@ -50,7 +50,7 @@ check(!dead.length, `asset references resolve (${dead.length} dead${dead.length 
 const leak = fs.readdirSync(dist, { recursive: true }).filter((f) => /\.(map|pdf)$|(^|\/)\.env|^data\//.test(f)); // R198: no source maps, PDFs, .env or data/ in dist
 check(!leak.length, `no source maps, .pdf, .env or data/ in dist (${leak.length}${leak.length ? ": " + leak.slice(0, 5).join(", ") : ""})`);
 // R290: --all runs every gate script one after another (browser ones need :4173; never two browser gates at once) and shows each one's verdict line
-const node = "audit-data bundle cite-check consent-unit deps dym-unit engine-unit graph-unit headers key-audit links-check lru-unit map-contrast parse-query recommend-unit related-audit sw-unit terms tokens suggest-eval summary-audit adv-fuzz search-eval stress perf";
+const node = "audit-data boolq-check bundle cite-check emph-check planner-queries consent-unit deps dym-unit engine-unit graph-unit headers key-audit links-check lru-unit map-contrast parse-query recommend-unit related-audit sw-unit terms tokens suggest-eval summary-audit adv-fuzz search-eval stress perf";
 const browser = "a11y consent-audit fuzz-inputs href-allow third-party map-reader-probe nav-save prefetch-check search-ui matrix frame-time heap";
 if (process.argv.includes("--all")) for (const c of [...`${node} ${browser}`.split(" ").map((s) => `node scripts/${s}.mjs`), ...[390, 768, 1300].map((w) => `W=${w} node scripts/phone.mjs`), "timeout 900 node e2e/ui.mjs"]) {
   const [ok, out] = run(c); check(ok, `${c} -> ${out.trim().split("\n").at(-1)}`); }

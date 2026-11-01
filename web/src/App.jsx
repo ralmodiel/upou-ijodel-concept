@@ -1,9 +1,10 @@
 import { Emph, EmphKey } from "./emph.jsx";
-import { parseQuery, pushUniq } from "./query.js";
+import { parseQuery, pushUniq, hayOf, countLine, urlEntry } from "./query.js";
+import { parseBool, matchBool } from "./boolq.js";
 import { weakDevice } from "./device.js";
 import { recommend } from "./recommend.js";
 import { normLists, NAME_MAX } from "./lists.js";
-import { bibtex, citeStyle, styleText, STYLES, ris } from "./cite.js";
+import { bibtex, citeStyle, styleText, STYLES, ris, csv } from "./cite.js";
 import { CookieConsent, openCookieSettings } from "./Consent.jsx";
 import { useSeo } from "./useSeo.js";
 import { pref, useConsent, allow } from "./consent.js";
@@ -31,7 +32,7 @@ const useHash = () => {
     if (trail.at(-1).route === h) return;
     // R154: a new page takes focus to <main> (screen readers then read it under the new title); in-page updates of the map or a
     // search (same first segment) keep focus where it is, on the map node or the search box
-    const seg = (r) => r.split("/")[1], prev = trail.at(-1).route;
+    const seg = (r) => r.split(/[/?]/)[1], prev = trail.at(-1).route;
     if (!(seg(prev) === seg(h) && ["maps", "search"].includes(seg(h))) && !document.activeElement?.closest("[role=alert]")) document.getElementById("main")?.focus({ preventScroll: true });
     const back = !keep && trail.at(-2)?.route === h; // an emblem click is forward even when it lands on the page two steps back
     const stay = keep && !back; keep = false;
@@ -41,7 +42,9 @@ const useHash = () => {
   }, [h]);
   return h;
 };
-export const qcap = (s) => dec(s.slice(0, 1200)).replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 300); // hostile hashes: <=300 chars, no control characters before the engine or document.title see them
+// hostile hashes: no control characters, and at most 4000 chars (a planner's Boolean string is read whole; the engine gets <= 300)
+export const qclean = (s) => s.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 4000);
+export const qcap = (s) => qclean(dec(s.slice(0, 12000)));
 export const dec = (s) => { try { return decodeURIComponent(s); } catch { return s; } }; // hostile hashes (%E0%A4%A) must not throw
 export const Link = ({ to, className = "", children, ...rest }) => <a href={"#" + to} className={className} {...rest}>{children}</a>;
 export const by = (a) => a.authors.join("; ");
@@ -115,6 +118,14 @@ export function AddBtn({ id, className = "", label }) {
 const cleanList = (name, ids) => ({ name: String(name || "").trim().slice(0, NAME_MAX) || "Shared list", items: [...new Set((Array.isArray(ids) ? ids : []).map(String))].filter((i) => window.__S.byId[i]).slice(0, 200) });
 const addLists = (ls) => { const l = getLists(), t = Date.now().toString(36); saveLists([...l, ...ls.map((x, i) => ({ id: "l" + t + i, ...x }))]); return "l" + t + "0"; };
 const download = (name, text, type) => { const u = URL.createObjectURL(new Blob([text], { type })), a = document.createElement("a"); a.href = u; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(u), 1000); };
+// Export a whole result list (all pages, not only the ones shown); each record keeps its stable article URL as id
+export function ExportBtns({ rows, name = "ijodel-results" }) {
+  const b = "min-h-10 rounded-md border border-line bg-surface px-3 text-sm text-link hover:bg-navy-soft";
+  return rows.length > 0 && <span role="group" aria-label={`Export all ${rows.length} results`} className="flex flex-wrap items-center gap-1.5 text-sm"><span className="text-ink-3">Export all:</span>
+    <button type="button" className={b} onClick={() => download(name + ".ris", ris(rows), "application/x-research-info-systems")}>RIS</button>
+    <button type="button" className={b} onClick={() => download(name + ".bib", bibtex(rows), "application/x-bibtex")}>BibTeX</button>
+    <button type="button" className={b} onClick={() => download(name + ".csv", csv(rows), "text/csv")}>CSV</button></span>;
+}
 // A shared list arrives as #/list/share/<name>/<id,id,...>; nothing is saved until the visitor asks.
 function SharedList({ name, ids }) {
   const l = cleanList(dec(name || ""), dec(ids || "").split(",")), items = l.items.map((i) => window.__S.byId[i]);
@@ -593,26 +604,31 @@ const SCOPES = [["title", "Title & authors"], ["abstract", "Abstract"], ["half,o
 function Chip({ on, onClick, children }) {
   return <button type="button" aria-pressed={on} onClick={onClick} className={`min-h-10 rounded-full border px-3.5 py-1.5 text-sm transition ${on ? "border-action bg-action-fill text-white" : "border-line bg-surface text-ink-2 hover:border-action-2 hover:text-action"}`}>{children}</button>;
 }
-function Search({ q0 }) {
+function Search({ q0, y0 }) {
   const all = window.__S.articles;
   const [years, cats, issues] = useMemo(() => [[...new Set(all.map((a) => a.year))].sort((x, y) => x - y), [...new Set(all.flatMap((a) => a.categories))].sort(), new Map(all.map((a) => [issueKey(a), a.issue.label]))], [all]); // R206
   const [q, setQ] = useState(q0 || ""), [base, setBase] = useState(null);
   const [scope, setScope] = useState(SCOPES.flatMap((s) => s[0].split(","))), [cat, setCat] = useState([]), [subj, setSubj] = useState([]);
-  const [from, setFrom] = useState(years[0]), [to, setTo] = useState(years.at(-1)), [author, setAuthor] = useState(""), [sort, setSort] = useState("relevance"), [view, setView] = useState("grid");
+  const clampY = (y, d) => (y ? Math.min(Math.max(y, +years[0]), +years.at(-1)) : +d), [y1, y2] = [clampY(y0?.from, years[0]), clampY(y0?.to, years.at(-1))].sort((x, y) => x - y);
+  const [from, setFrom] = useState(y1), [to, setTo] = useState(y2), [author, setAuthor] = useState(""), [sort, setSort] = useState("relevance"), [view, setView] = useState("grid");
   const [open, setOpen] = useState(() => matchMedia("(min-width:1024px)").matches), [allSubj, setAllSubj] = useState(false), [last, setLast] = useState("");
   const [err, setErr] = useState(false);
   const gen = useRef(0); // a slower earlier search must not overwrite the later list
-  const run = async (raw) => { const text = parseQuery(raw).text, g = ++gen.current; setErr(false); try { const r = text ? await searchArticles(text, { k: 200, fields: scope.join(",").split(",") }) : all.map((a) => ({ ...a, matched: [] })); if (g === gen.current) setBase(r); } catch { if (g === gen.current) { setErr(true); setBase([]); } } };
+  const run = async (raw) => { const text = parseQuery(raw).text.slice(0, 300), g = ++gen.current; setErr(false); try { const r = text ? await searchArticles(text, { k: 200, fields: scope.join(",").split(",") }) : (await window.__S.textsP, all.map((a) => ({ ...a, matched: [] }))); if (g === gen.current) setBase(r); } catch { if (g === gen.current) { setErr(true); setBase([]); } } };
   useEffect(() => { setQ(q0 || ""); run(q0 || ""); setShown(PAGE); }, [q0, scope]);
   const ms = useModel().s; useEffect(() => { if (ms === "ready" && q0) run(q0); }, [ms]); // re-rank once the vectors are in
   const [issue, setIssue] = useState(""), [shown, setShown] = useState(PAGE);
   const au = author.trim().toLowerCase(), pq = parseQuery(q0);
-  const hay = (a) => (a.title + " " + a.abstract + " " + (a.half || "") + " " + (a.one || "") + " " + (a.two || "")).toLowerCase();
-  // A quoted phrase with no literal match is not a dead end: keep the words' ranking (the model ranks by meaning) and say so.
-  const soft = pq.phrases.length > 0 && !!base && !base.some((a) => pq.phrases.every((x) => hay(a).includes(x)));
-  const P = { op: (a) => (!pq.y || (a.year >= pq.y[0] && a.year <= pq.y[1])) && (!pq.author || by(a).toLowerCase().includes(pq.author)) && (!pq.phrases.length && !pq.neg.length || ((h) => (soft || pq.phrases.every((x) => h.includes(x))) && !pq.neg.some((x) => new RegExp("\\b" + x.replace(/[^\w-]/g, "") + "\\b").test(h)))(hay(a))), year: (a) => a.year >= from && a.year <= to, au: (a) => !au || by(a).toLowerCase().includes(au), subj: (a) => !subj.length || subj.every((s) => a.subjects.includes(s)), issue: (a) => !issue || issueKey(a) === issue, cat: (a) => !cat.length || a.categories.some((c) => cat.includes(c)) };
+  // The count is the Boolean predicate (boolq.js) over every chapter, not a top-k cut: hybrid-ranked matches first, then the rest by year.
+  const bq = useMemo(() => parseBool(pq.bool), [q0]);
+  const inB = useMemo(() => base && bq.ast ? new Set(all.filter((a) => matchBool(bq.ast, hayOf(a, scope))).map((a) => a.id)) : null, [base, bq]);
+  // Plain words that no chapter has all of (a question, say) are not a dead end: keep the ranking by meaning and say so.
+  const soft = !!inB && bq.plain && inB.size === 0 && base.length > 0;
+  const src = useMemo(() => { if (!inB || soft) return base; const got = new Set(base.map((a) => a.id));
+    return [...base.filter((a) => inB.has(a.id)), ...all.filter((a) => inB.has(a.id) && !got.has(a.id)).sort((x, y) => y.year - x.year).map((a) => ({ ...a, matched: [] }))]; }, [base, inB, soft]);
+  const P = { op: (a) => (!pq.y || (a.year >= pq.y[0] && a.year <= pq.y[1])) && (!pq.author || by(a).toLowerCase().includes(pq.author)), year: (a) => a.year >= from && a.year <= to, au: (a) => !au || by(a).toLowerCase().includes(au), subj: (a) => !subj.length || subj.every((s) => a.subjects.includes(s)), issue: (a) => !issue || issueKey(a) === issue, cat: (a) => !cat.length || a.categories.some((c) => cat.includes(c)) };
   // Facet lists show only what the other filters leave; the facet clicked last also ignores its own filter so more can be picked from it.
-  const match = (skip) => (base || []).filter((a) => Object.entries(P).every(([k, f]) => k === skip || f(a)));
+  const match = (skip) => (src || []).filter((a) => Object.entries(P).every(([k, f]) => k === skip || f(a)));
   const pre = match("cat"), res = pre.filter(P.cat), resCats = new Set(res.flatMap((a) => a.categories)); // res = match(""): reuse it (R156)
   const list = sort === "newest" ? [...res].sort((x, y) => y.year - x.year) : sort === "oldest" ? [...res].sort((x, y) => x.year - y.year) : sort === "title" ? [...res].sort((x, y) => x.title.localeCompare(y.title)) : res;
   const count = {}; pre.forEach((a) => a.categories.forEach((c) => { count[c] = (count[c] || 0) + 1; }));
@@ -627,7 +643,7 @@ function Search({ q0 }) {
   const toggleSave = () => { store("ijodel-saved", isSaved ? saved().filter((x) => x !== q0) : pushUniq(saved(), q0, 30)); bump((n) => n + 1); };
   const authors = [...new Set(match("au").flatMap((a) => a.authors))].sort();
   const shownCats = last === "cat" || !cat.length ? cats.filter((c) => count[c] || cat.includes(c)) : cats.filter((c) => resCats.has(c) || cat.includes(c));
-  const yrs = new Set(match("year").map((a) => a.year)), shownYears = years.filter((y) => yrs.has(y) || y === from || y === to);
+  const yrs = new Set(match("year").map((a) => a.year)), shownYears = years.filter((y) => yrs.has(y) || +y === +from || +y === +to);
   const active = [...cat.map((c) => [c, () => tog(cat, setCat, c, "cat")]), ...subj.map((s) => [s, () => tog(subj, setSubj, s, "subj")]), ...(au ? [["Author: " + author, () => setAuthor("")]] : []), ...(issue ? [[issues.get(issue), () => setIssue("")]] : []), ...(from > years[0] || to < years.at(-1) ? [[`${from}–${to}`, () => { setFrom(years[0]); setTo(years.at(-1)); }]] : [])];
   const reset = () => { setCat([]); setSubj([]); setAuthor(""); setIssue(""); setFrom(years[0]); setTo(years.at(-1)); setScope(SCOPES.flatMap((s) => s[0].split(","))); };
   const lab = "mb-2 block text-xs font-bold uppercase tracking-wide text-ink-3";
@@ -659,13 +675,15 @@ function Search({ q0 }) {
         </aside>
         <div className="min-w-0">
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <p id="count" tabIndex={-1} className="mr-auto text-sm text-ink-2" role="status" aria-atomic="true"><b>{list.length}</b> of {all.length} chapters{q0 ? <> for “{q0}”</> : ""}<span className="sr-only">{active.length ? `, ${active.length} filter${active.length > 1 ? "s" : ""}` : ""}, sorted by {{ relevance: q0 ? "relevance" : "default order", newest: "newest first", oldest: "oldest first", title: "title A to Z" }[sort]}</span></p>
+            <p id="count" tabIndex={-1} className="mr-auto text-sm text-ink-2" role="status" aria-atomic="true">{q0 ? <><b>{list.length}</b>{countLine(list.length, q0, from, to).replace(/^\d+/, "")}</> : <><b>{list.length}</b> of {all.length} chapters</>}<span className="sr-only">{active.length ? `, ${active.length} filter${active.length > 1 ? "s" : ""}` : ""}, sorted by {{ relevance: q0 ? "relevance" : "default order", newest: "newest first", oldest: "oldest first", title: "title A to Z" }[sort]}</span></p>
             <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort" className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm"><option value="relevance">{q0 ? "Most relevant" : "Default order"}</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="title">Title A–Z</option></select>
             {q0 && <button type="button" aria-pressed={!!isSaved} onClick={toggleSave} title={allow("prefs") ? "Saved on this device" : "Saved for this visit; allow search history and settings in Cookie settings to keep it"} className="min-h-10 rounded-md border border-line bg-surface px-3 text-sm text-link hover:bg-navy-soft disabled:opacity-40">{isSaved ? "★ Saved" : "☆ Save search"}</button>}
             <ViewToggle view={view} setView={setView} />
+            {q0 && <ExportBtns rows={list} />}
           </div>
+          {bq.note && <p role="status" className="mb-3 text-sm text-ink-2">{bq.note}</p>}
           {pq.ops.length > 0 && <div className="mb-3 flex flex-wrap items-center gap-2 text-sm" aria-label="Query operators"><span className="text-ink-3">Query:</span>{pq.ops.map(([l, raw]) => <Link key={raw} to={without(raw)} aria-label={"Remove " + l} className="rounded-full border border-action-2/40 bg-crimson-soft px-3 py-1 text-link hover:underline">{l} ×</Link>)}</div>}
-          {soft && <p role="status" className="mb-3 text-sm text-ink-2">No chapter contains that exact phrase, so these are the closest by meaning{ms === "ready" ? " (ranked with the language model)" : ""}.</p>}
+          {soft && <p role="status" className="mb-3 text-sm text-ink-2">No chapter contains all of these words, so these are the closest by meaning{ms === "ready" ? " (ranked with the language model)" : ""}.</p>}
           {!q0 && (saved().length > 0 || recents().length > 0) && <div className="mb-4 space-y-2 text-sm">{[["Saved searches", saved(), "ijodel-saved"], ["Recent searches", recents(), "ijodel-recent"]].map(([h, l, k]) => l.length > 0 && <p key={k} className="flex flex-wrap items-center gap-2"><span className="text-ink-3">{h}:</span>{l.map((x) => <Link key={x} to={"/search/" + encodeURIComponent(x)} className="rounded-full bg-navy-soft px-3 py-0.5 text-navy hover:underline">{x}</Link>)}<button type="button" onClick={() => { store(k, []); bump((n) => n + 1); }} className="min-h-9 px-1 text-link hover:underline">{k === "ijodel-saved" ? "Clear saved" : "Clear history"}</button></p>)}</div>}
           {active.length > 0 && <div className="mb-4 flex flex-wrap gap-2">{active.map(([l, f]) => <button key={l} type="button" onClick={f} className="rounded-full bg-navy-soft px-3 py-1 text-sm text-navy hover:bg-sky/50" aria-label={"Remove filter " + l}>{l} ×</button>)}</div>}
           {fix && <p className="mb-4 rounded-md bg-navy-soft px-4 py-2 text-sm">Did you mean <Link to={"/search/" + encodeURIComponent(fix)} className="font-bold text-link underline">{fix}</Link>?</p>}
@@ -728,7 +746,7 @@ function Overview({ a, mode, setMode }) {
     </section>
     {a.diff && <section aria-label="What sets this chapter apart" className="mt-8"><h2 className="border-b border-line pb-2 font-serif text-2xl">What sets this chapter apart<AiLabel /></h2>
         <NoCite what="AI comparison" className="mt-3" />
-        <div className="mt-4 space-y-4 text-lg leading-8 text-ink">{a.diff.map((p, i) => <p key={i}>{p}</p>)}</div></section>}
+        <EmphKey /><div className="mx-auto mt-4 max-w-prose space-y-4 rounded-lg border border-line bg-surface px-5 py-6 text-lg leading-8 text-ink shadow-sm hyphens-auto text-justify [text-wrap:pretty] sm:px-10 sm:py-8">{a.diff.map((p, i) => <p key={i}><Emph text={p} terms={[...(a.subjects || []), ...(a.categories || [])]} /></p>)}</div></section>}
     </>
   );
 }
@@ -795,12 +813,12 @@ function Reader({ id, at, sec }) {
         <div id="r-overview" className="scroll-mt-16"><Overview a={a} mode={mode} setMode={setMode} /></div>
         <div className="mt-6 flex flex-wrap items-center gap-3 print:hidden"><AddBtn id={a.id} label className="!bg-navy-soft" /><Link to={"/maps/pub/" + a.id} className="inline-flex min-h-10 items-center rounded-full border border-line px-4 text-sm font-medium text-link hover:bg-navy-soft">Relationship map</Link>{(() => { const l = (getLists().find((x) => x.items.includes(a.id)) || { items: [] }).items, nx = l[l.indexOf(a.id) + 1]; return nx && window.__S.byId[nx] ? <Link to={"/read/" + nx} className="rounded-full border border-line px-4 py-2 text-sm font-medium text-link hover:bg-navy-soft">Next in my list →</Link> : null; })()}{isOrig(a.url) && <a href={a.url} target="_blank" rel="noopener noreferrer" className="rounded-full bg-action-fill px-5 py-2.5 text-sm font-medium text-white hover:bg-action-2-fill">Open the original article ↗</a>}</div>
         {faqs.length > 0 && <section id="r-faq" className="mt-10 scroll-mt-16"><h2 className="flex items-center gap-2 font-serif text-2xl">Questions this chapter answers <span className={BADGE_C} title="Generated by a language model; check the original article">AI</span><SecLink id={a.id} sec="faq" /></h2>
-          {mode === "summary" && <NoCite what="AI-generated questions and answers" className="mt-3" />}
+          {mode === "summary" && <NoCite what="AI-generated questions and answers" className="mt-3" />}<EmphKey />
           {[["key", "Key questions"], ["topic", "By topic"]].map(([k, h]) => { const g = faqs.filter((f) => (f.kind || "key") === k); return g.length > 0 && <div key={k} data-faq-group={k}><h3 className="mt-5 text-sm font-bold uppercase tracking-wide text-ink-3">{h}</h3>
-          <div className="mt-2 divide-y divide-line rounded-xl border border-line bg-surface">{g.map((f) => <details key={f.id} className="group p-4"><summary className="cursor-pointer font-medium">{f.about && <span className={BADGE_N + " mr-2"}>{f.about}</span>}{f.q}</summary><p className="mt-2 text-ink-2">{f.a} <AiLabel /></p><Ref f={f} /></details>)}</div></div>; })}</section>}
+          <div className="mt-2 divide-y divide-line rounded-xl border border-line bg-surface">{g.map((f) => <details key={f.id} className="group p-4"><summary className="cursor-pointer font-medium">{f.about && <span className={BADGE_N + " mr-2"}>{f.about}</span>}{f.q}</summary><p className="mt-2 text-justify hyphens-auto text-ink-2 [text-wrap:pretty]"><Emph text={f.a} terms={[...(a.subjects || []), ...(a.categories || [])]} /> <AiLabel /></p><Ref f={f} /></details>)}</div></div>; })}</section>}
       </div></div>
       <aside id="r-related" className="scroll-mt-16"><h2 className="flex items-center gap-2 font-serif text-2xl">Related reading<SecLink id={a.id} sec="related" /></h2>
-        <ul className="mt-3 space-y-3">{(a.related || []).map((r) => { const o = window.__S.byId[r.id]; return o && <li key={r.id} className="rounded-xl border border-line bg-surface p-4"><Link to={"/read/" + o.id} className="font-medium text-link hover:underline">{o.title}</Link><div className="mt-1 flex items-center gap-2"><div className="min-w-0 flex-1 text-xs text-ink-3">{by(o)} · {o.year}</div><AddBtn id={o.id} label /></div>{r.why && <p className="mt-2 text-sm text-ink-2">{r.why}</p>}</li>; })}</ul></aside>
+        <ul className="mt-3 space-y-3">{(a.related || []).map((r) => { const o = window.__S.byId[r.id]; return o && <li key={r.id} className="rounded-xl border border-line bg-surface p-4"><Link to={"/read/" + o.id} className="font-medium text-link hover:underline">{o.title}</Link><div className="mt-1 flex items-center gap-2"><div className="min-w-0 flex-1 text-xs text-ink-3">{by(o)} · {o.year}</div><AddBtn id={o.id} label /></div>{r.why && <p className="mt-2 text-justify text-sm text-ink-2 hyphens-auto [text-wrap:pretty]"><Emph text={r.why} terms={[...(o.subjects || []), ...(o.categories || [])]} /></p>}</li>; })}</ul></aside>
     </article>
   );
 }
@@ -866,11 +884,12 @@ export default function App() {
   useEffect(() => { if (state !== "ok" || weakDevice()) return; const t = setTimeout(() => (window.requestIdleCallback || setTimeout)(() => Object.values(LOAD).forEach((f) => f().catch(() => {})), { timeout: 2000 }), 1500); return () => clearTimeout(t); }, [state]);
   useEffect(() => { const f = (e) => setUpd(() => e.detail); addEventListener("ijodel-update", f); return () => removeEventListener("ijodel-update", f); }, []);
   // the semantic model is a third-party download: only with consent, and only once someone searches (box focus or a search route)
-  useEffect(() => { if (state === "ok" && consent?.model && route.startsWith("/search/")) startModel(true); }, [state, consent?.model, route]);
-  const parts = route.split("/").filter(Boolean);
+  useEffect(() => { if (state === "ok" && consent?.model && /^\/search[/?]/.test(route)) startModel(true); }, [state, consent?.model, route]);
+  const qi = route.indexOf("?"), parts = (qi < 0 ? route : route.slice(0, qi)).split("/").filter(Boolean);
+  const entry = qi < 0 ? null : urlEntry(route.slice(qi + 1)); // #/search?query=… and #/advanced?query=… (the Topic Planner's URLs)
   const art = state === "ok" && parts[0] === "read" ? window.__S.byId[parts[1]] : null;
   const PAGE = { search: "Search", advanced: "Advanced search", maps: "Maps", privacy: "Privacy notice", about: "About", issues: "Issues", topics: "Topics", list: "View lists" };
-  const seoT = art ? art.title : PAGE[parts[0]] ? (parts[0] === "search" && parts[1] ? `Search: ${qcap(parts[1]).slice(0, 80)}` : PAGE[parts[0]]) : "";
+  const seoT = art ? art.title : PAGE[parts[0]] ? (parts[0] === "search" && (parts[1] || entry?.q) ? `Search: ${(parts[1] ? qcap(parts[1]) : qclean(entry.q)).slice(0, 80)}` : PAGE[parts[0]]) : "";
   useSeo(seoT ? seoT + " | IJODeL" : "IJODeL — International Journal on Open and Distance e-Learning", art ? (art.abstract || art.half || "").replace(/\s+/g, " ").slice(0, 155) : "IJODeL: open-access scholarly articles on open and distance e-learning. Browse, search and read chapters by issue, topic and author.");
   return (
     <>
@@ -880,7 +899,7 @@ export default function App() {
       {!online && <p role="status" className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-950 print:hidden">You are offline. Pages already opened still work; new search data or chapters may not load until you reconnect.</p>}
       <main id="main" tabIndex={-1} className={parts[0] === undefined || state !== "ok" ? "min-h-[60vh]" : ["search", "advanced", "maps"].includes(parts[0]) ? "mx-auto max-w-6xl min-[1536px]:max-w-[88rem] px-4 py-8 sm:px-8" : "mx-auto max-w-5xl px-4 py-8"}>
         {state === "loading" ? <div className="mx-auto max-w-6xl min-[1536px]:max-w-[88rem] p-8" role="status" aria-label="Loading the journal index"><div className="skeleton h-64" /><div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="skeleton aspect-[3/4]" />)}</div></div> : state !== "ok" ? <div className="p-8" role="alert"><p>{state}</p>{!online && <p className="mt-1 text-ink-2">You are offline.</p>}<button type="button" onClick={() => location.reload()} className="mt-3 min-h-11 rounded-full bg-action-fill px-5 text-white">Retry</button></div> :
-          <Boundary route={route} key={route.startsWith("/maps") ? "/maps" : route}>{parts[0] && !ROUTES.includes(parts[0]) ? <NotFound route={route} /> : parts[0] === "privacy" ? <Suspense fallback={<div className="skeleton h-[60vh]" role="status" aria-label="Loading" />}><Privacy /></Suspense> : parts[0] === "about" ? <Suspense fallback={<div className="skeleton h-[60vh]" role="status" aria-label="Loading" />}><About /></Suspense> : parts[0] === "read" ? <Reader id={parts[1]} at={parts[2] === "p" && /^\d+$/.test(parts[3] || "") ? [parts[3], dec(parts[4] || "")] : null} sec={parts[2] === "s" && /^(overview|faq|related)$/.test(parts[3] || "") ? parts[3] : null} /> : parts[0] === "list" ? (parts[1] === "share" ? <SharedList name={parts[2]} ids={parts[3]} /> : <MyList lid={parts[1]} />) : parts[0] === "issues" ? <Issues /> : parts[0] === "topics" ? <Topics /> : parts[0] === "advanced" ? <Suspense fallback={<><h1 className="font-serif text-3xl">Advanced search</h1><AdvIntro /><div className="skeleton mt-4 h-[85vh]" role="status" aria-label="Loading" /></>}><Advanced share={parts[1] === "s" ? parts[2] : null} /></Suspense> : parts[0] === "maps" ? <Suspense fallback={<><h1 className="font-serif text-3xl">Relationship map</h1><MapsIntro /><div className="skeleton mt-4 h-[85vh]" role="status" aria-label="Loading" /></>}><Maps kind={parts[1]} id={parts[2] && dec(parts[2])} /></Suspense> : parts[0] === "search" ? <Search q0={qcap(parts[1] || "")} /> :
+          <Boundary route={route} key={route.startsWith("/maps") ? "/maps" : route}>{parts[0] && !ROUTES.includes(parts[0]) ? <NotFound route={route} /> : parts[0] === "privacy" ? <Suspense fallback={<div className="skeleton h-[60vh]" role="status" aria-label="Loading" />}><Privacy /></Suspense> : parts[0] === "about" ? <Suspense fallback={<div className="skeleton h-[60vh]" role="status" aria-label="Loading" />}><About /></Suspense> : parts[0] === "read" ? <Reader id={parts[1]} at={parts[2] === "p" && /^\d+$/.test(parts[3] || "") ? [parts[3], dec(parts[4] || "")] : null} sec={parts[2] === "s" && /^(overview|faq|related)$/.test(parts[3] || "") ? parts[3] : null} /> : parts[0] === "list" ? (parts[1] === "share" ? <SharedList name={parts[2]} ids={parts[3]} /> : <MyList lid={parts[1]} />) : parts[0] === "issues" ? <Issues /> : parts[0] === "topics" ? <Topics /> : parts[0] === "advanced" ? <Suspense fallback={<><h1 className="font-serif text-3xl">Advanced search</h1><AdvIntro /><div className="skeleton mt-4 h-[85vh]" role="status" aria-label="Loading" /></>}><Advanced share={parts[1] === "s" ? parts[2] : null} entry={entry?.q ? { ...entry, q: qclean(entry.q) } : null} /></Suspense> : parts[0] === "maps" ? <Suspense fallback={<><h1 className="font-serif text-3xl">Relationship map</h1><MapsIntro /><div className="skeleton mt-4 h-[85vh]" role="status" aria-label="Loading" /></>}><Maps kind={parts[1]} id={parts[2] && dec(parts[2])} /></Suspense> : parts[0] === "search" ? <Search q0={parts[1] ? qcap(parts[1]) : qclean(entry?.q || "")} y0={entry} /> :
           ["cat", "year", "issue", "tag"].includes(parts[0]) ? <Group kind={parts[0]} id={parts[1]} /> : <Browse />}</Boundary>}
       </main>
       <footer className="mt-10 bg-ink-fill text-sm text-white/80 print:hidden">

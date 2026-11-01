@@ -1,6 +1,6 @@
 // Citation styles vs hand-checked samples: node scripts/cite-check.mjs  -> "N checks, M FAIL", exit 1 on FAIL.
 import fs from "node:fs";
-import { styleText, bibtex, ris } from "../src/cite.js";
+import { styleText, bibtex, ris, csv } from "../src/cite.js";
 const A = (authors) => ({ id: "7", authors, title: "Learning online: a study", year: 2020, issue: { vol: 6, no: "1" }, url: "https://ijodel.com/x" });
 const J = "International Journal on Open and Distance e-Learning";
 const cases = [
@@ -13,6 +13,9 @@ const cases = [
   ["ris", ris([A(["Cruz, Ana"])]).startsWith("TY  - JOUR\r\nAU  - Cruz, Ana\r\n"), true],
   // R158: a hostile title cannot close a BibTeX field or start a new RIS tag line (no CSV export exists, so no formula cells)
   ["hostile title", ((x) => bibtex([x]).includes("title = {=cmd XER  - TY  - BOOK}") && ris([x]).split("\r\n").filter((l) => /^(TY|ER)  - /.test(l)).length === 2)({ ...A(["Cruz, Ana"]), title: "=cmd} X\r\nER  - \nTY  - BOOK{" }), true],
+  // whole-result export: CSV quotes every field, keeps the stable id, and defuses formula cells; RIS carries the abstract
+  ["csv", csv([{ ...A(["Cruz, Ana", "Lim, Cy"]), title: '=HYPERLINK("x") "q"', abstract: "Line one\nline two" }]).split("\r\n")[1], `"https://ijodel.com/x","'=HYPERLINK(""x"") ""q""","Cruz, Ana; Lim, Cy","2020","${J}","6","1","","Line one line two"`],
+  ["ris abstract", ris([{ ...A(["Cruz, Ana"]), abstract: "A\nB" }]).includes("\r\nAB  - A B\r\nER  - "), true],
   // R160: particles keep lower case, suffixes follow initials, an all-caps surname is re-cased around the particle
   ["particle", styleText(A(["van der Berg, Jan"]), "apa").startsWith("van der Berg, J. ("), true],
   ["caps particle", styleText(A(["DE LA CRUZ, ANA"]), "apa").startsWith("de la Cruz, A. ("), true],
